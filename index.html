@@ -2736,9 +2736,9 @@ html,body{background:var(--bg);color:var(--text);font-family:var(--sans);font-si
 .logo{font-size:18px;font-weight:700;letter-spacing:-0.02em}.logo span{color:var(--accent)}
 .report-meta{font-size:11px;font-family:var(--mono);color:var(--text3);margin-left:auto;text-align:right}
 .summary{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--border);border-bottom:1px solid var(--border)}
-.sum-item{background:var(--surface);padding:14px 18px}
+.sum-item{background:var(--surface);padding:7px 12px}
 .sum-label{font-size:10px;font-family:var(--mono);color:var(--text3);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:4px}
-.sum-val{font-size:24px;font-weight:700;letter-spacing:-0.03em}
+.sum-val{font-size:15px;font-weight:700;letter-spacing:-0.02em}
 .green{color:var(--green)}.red{color:var(--red)}.amber{color:var(--amber)}
 .container{max-width:1000px;margin:0 auto;padding:16px}
 details{background:var(--surface);border:1px solid var(--border);border-radius:10px;margin-bottom:10px;overflow:hidden}
@@ -2772,17 +2772,10 @@ table{width:100%;border-collapse:collapse;margin-top:12px;margin-bottom:14px}
 th{font-size:10px;font-family:var(--mono);color:var(--text3);letter-spacing:0.07em;text-transform:uppercase;padding:7px 10px;border-bottom:1px solid var(--border2);text-align:left}
 td{padding:9px 10px;border-bottom:1px solid var(--border);font-size:13px;color:var(--text);vertical-align:middle}
 tr:last-child td{border-bottom:none}
-.photos-label{font-size:10px;font-family:var(--mono);color:var(--text3);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:10px;margin-top:4px}
-.photo-grid{display:flex;flex-wrap:wrap;gap:10px}
-.photo-grid img{width:110px;height:110px;object-fit:cover;border-radius:8px;border:1px solid rgba(255,255,255,0.13);display:block;cursor:pointer}
-.no-photos{font-size:12px;font-family:var(--mono);color:var(--text3)}
 .footer{text-align:center;padding:28px 16px;font-size:11px;font-family:var(--mono);color:var(--text3);border-top:1px solid var(--border);margin-top:10px}
-.photo-grid a{display:block;-webkit-tap-highlight-color:rgba(255,255,255,0.1)}
-.photo-grid a img{width:110px;height:110px;object-fit:cover;border-radius:8px;border:1px solid rgba(255,255,255,0.13);display:block}
 @media(max-width:600px){
   .summary{grid-template-columns:repeat(2,1fr)}
   .so-date{display:none}
-  .photo-grid img{width:85px;height:85px}
   table{font-size:12px}th,td{padding:6px 8px}
 }
 @media print{
@@ -2838,10 +2831,6 @@ ${soData.map(s => {
       <td>${isApp?'<span class="tag tg">✓ Approved</span>':'<span class="tag td">Pending</span>'}</td>
     </tr>`;
   }).join('');
-  const photoItems = s.soPhotos.map((p,i)=>{
-    return `<a href="${p.url}" target="_blank"><img src="${p.url}" loading="lazy" alt="${p.filename}"></a>`;
-  }).join('');
-  const photoSection = hasPic ? `<div class="photo-grid">${photoItems}</div>` : `<div class="no-photos">No photos uploaded yet</div>`;
   return `<details open>
   <summary>
     <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
@@ -2855,8 +2844,6 @@ ${soData.map(s => {
   <div class="body">
     <table><thead><tr><th>Traveler</th><th>Description</th><th>Item</th><th style="text-align:right">Qty</th><th>Status</th></tr></thead>
     <tbody>${travelerRows}</tbody></table>
-    <div class="photos-label">Photos</div>
-    ${photoSection}
   </div>
 </details>`;
 }).join('\n')}
