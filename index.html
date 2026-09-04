@@ -479,6 +479,30 @@ thead th{position:sticky;top:0;z-index:2;background:var(--surface);border-bottom
   </div>
 </div>
  
+<!-- Holidays modal (owner only) -->
+<div class="modal-overlay" id="holidays-modal">
+  <div class="modal-card">
+    <div class="modal-title">
+      Holidays
+      <button class="modal-close" onclick="closeHolidaysModal()">✕</button>
+    </div>
+    <div id="holidays-list" style="max-height:240px;overflow-y:auto;margin-bottom:14px"></div>
+    <div class="modal-field">
+      <div class="modal-label">Date</div>
+      <input class="modal-input" id="hol-date" type="date">
+    </div>
+    <div class="modal-field">
+      <div class="modal-label">Name</div>
+      <input class="modal-input" id="hol-name" type="text" placeholder="e.g. Labor Day">
+    </div>
+    <div class="modal-err" id="hol-err"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeHolidaysModal()">Close</button>
+      <button class="btn primary" id="hol-add-btn" onclick="doAddHoliday()">Add holiday</button>
+    </div>
+  </div>
+</div>
+ 
 <!-- Add user modal -->
 <div class="modal-overlay" id="add-user-modal">
   <div class="modal-card">
@@ -596,6 +620,10 @@ thead th{position:sticky;top:0;z-index:2;background:var(--surface);border-bottom
       <div class="nav-item" id="nav-archive" onclick="sv('archive')" style="display:none">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
         Archive<span class="nb" id="b-archive">0</span>
+      </div>
+      <div class="nav-item" id="nav-holidays" onclick="openHolidaysModal()" style="display:none">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        Holidays
       </div>
       <div class="nav-item" id="nav-log" onclick="sv('log')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
@@ -814,7 +842,7 @@ let refreshToken = null;
 let sessExpiresAt = 0;
 let currentUser = null;
 let currentProfile = null; // {full_name, role, username}
-let orders = [], photos = {}, dateChanges = [], approvals = {}, archivedOrders = [], soComments = {};
+let orders = [], photos = {}, dateChanges = [], approvals = {}, archivedOrders = [], soComments = {}, holidayList = [], holidayDates = new Set();
 let expanded = new Set(), allExp = false, activeLine = '', activeView = 'tomorrow';
 let collapsedTravelers = new Set();
 let missingFromCSV = [];
@@ -978,6 +1006,7 @@ function showApp(){
   document.getElementById('nav-upload').style.display  = isMgr ? 'flex' : 'none';
   document.getElementById('nav-users').style.display   = isMgr ? 'flex' : 'none';
   document.getElementById('nav-archive').style.display = isMgr ? 'flex' : 'none';
+  document.getElementById('nav-holidays').style.display = uname === 'zgta26' ? 'flex' : 'none';
   // Body classes drive CSS permissions
   document.body.classList.toggle('manager',    isMgr);
   document.body.classList.toggle('viewer',     isViewer || isProd); // production = no photo upload
@@ -1062,6 +1091,13 @@ async function loadLastCsvUpload(){
     el.style.display='block';
   } catch(e){}
 }
+async function loadHolidays(){
+  try{
+    const rows = await sbGet('holidays','select=id,date,name&order=date.asc');
+    holidayList = rows;
+    holidayDates = new Set(rows.map(r=>r.date));
+  } catch(e){}
+}
 async function sbUpsertOrders(rows){
   const r = await fetch(`${SUPA_URL}/rest/v1/orders?on_conflict=traveler`, {
     method:'POST', headers:{...H(),'Prefer':'resolution=merge-duplicates'},
@@ -1092,7 +1128,7 @@ async function sbUpdate(table, id, data){
 // ── Load data ─────────────────────────────────────────────────────────────────
 async function loadAll(){
   showLoading('Loading orders…');
-  try{ await Promise.all([loadOrders(), loadPhotos(), loadApprovals(), loadComments(), loadLastCsvUpload()]); updateAll(); sv('tomorrow'); openDeepLinkedSO(); }
+  try{ await Promise.all([loadOrders(), loadPhotos(), loadApprovals(), loadComments(), loadLastCsvUpload(), loadHolidays()]); updateAll(); sv('tomorrow'); openDeepLinkedSO(); }
   catch(e){ toast('Error',e.message,'red'); }
   hideLoading();
 }
@@ -1327,7 +1363,7 @@ async function refreshData(){
   try{
     const ok = await refreshAuthToken();
     if(!ok){ await forceReauth('Session expired — please sign in again.'); btn.disabled=false; return; }
-    await Promise.all([loadOrders(),loadPhotos(),loadApprovals(),loadComments()]); updateAll(); render(); toast('Refreshed','Data is up to date.','green'); startAutoRefresh();
+    await Promise.all([loadOrders(),loadPhotos(),loadApprovals(),loadComments(),loadHolidays()]); updateAll(); render(); toast('Refreshed','Data is up to date.','green'); startAutoRefresh();
   }
   catch(e){ toast('Error',e.message,'red'); }
   btn.disabled=false;
@@ -1680,25 +1716,30 @@ function groupBySO(list){
 }
 function getNextWorkingDays(){
   // Returns array of ISO date strings to show in "Tomorrow's orders"
-  // If tomorrow is Saturday: show Sat + Sun + Mon
-  // If tomorrow is Sunday: show Sun + Mon
-  // Otherwise: just tomorrow
-  const tomorrow = new Date();
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  const day = tomorrow.getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
- 
+  // Walks forward from tomorrow, skipping any date in holidayDates entirely
+  // (never shown, matches the request that a holiday just gets bridged over).
+  // Once a non-holiday day is reached, it's added. If that day is Sat(6) or
+  // Sun(0), we keep walking so the view still bridges through to the next
+  // normal weekday — same behavior as before holidays existed, just with
+  // holiday dates skipped wherever they fall in the sequence.
   const toISO = d => d.toISOString().slice(0,10);
- 
-  if(day === 6){ // tomorrow is Saturday
-    const sun = new Date(tomorrow); sun.setDate(sun.getDate()+1);
-    const mon = new Date(tomorrow); mon.setDate(mon.getDate()+2);
-    return [toISO(tomorrow), toISO(sun), toISO(mon)];
-  } else if(day === 0){ // tomorrow is Sunday
-    const mon = new Date(tomorrow); mon.setDate(mon.getDate()+1);
-    return [toISO(tomorrow), toISO(mon)];
-  } else {
-    return [toISO(tomorrow)];
+  let cursor = new Date();
+  cursor.setDate(cursor.getDate() + 1);
+  const result = [];
+  for(let guard=0; guard<40; guard++){
+    if(holidayDates.has(toISO(cursor))){
+      cursor.setDate(cursor.getDate()+1);
+      continue;
+    }
+    result.push(toISO(cursor));
+    const day = cursor.getDay();
+    if(day === 6 || day === 0){
+      cursor.setDate(cursor.getDate()+1);
+      continue;
+    }
+    break;
   }
+  return result;
 }
 function getTomorrow(){ return getNextWorkingDays()[0]; }
 function fmtDate(iso){
@@ -1785,8 +1826,9 @@ function updateAll(){
  
   // Update tomorrow nav label based on day
   const nextDaysCheck = getNextWorkingDays();
-  const navLabel = nextDaysCheck.length === 3 ? "Fri · Sat · Mon orders" :
-                   nextDaysCheck.length === 2 ? "Weekend + Mon orders" : "Tomorrow's orders";
+  const dayAbbr = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const labelDays = nextDaysCheck.map(iso=>dayAbbr[new Date(iso+'T00:00:00').getDay()]);
+  const navLabel = labelDays.length > 1 ? labelDays.join(' · ')+' orders' : "Tomorrow's orders";
   const navTomEl = document.getElementById('nav-tomorrow-label');
   if(navTomEl) navTomEl.textContent = navLabel;
  
@@ -2860,6 +2902,62 @@ ${soData.map(s => {
   win.focus();
   win.onload = () => { win.print(); };
 }
+
+// ── Holidays (owner only) ───────────────────────────────────────────────────────
+function openHolidaysModal(){
+  if(currentProfile?.username !== 'zgta26') return;
+  document.getElementById('hol-date').value = '';
+  document.getElementById('hol-name').value = '';
+  document.getElementById('hol-err').textContent = '';
+  renderHolidaysList();
+  document.getElementById('holidays-modal').classList.add('open');
+}
+function closeHolidaysModal(){ document.getElementById('holidays-modal').classList.remove('open'); }
+function renderHolidaysList(){
+  const list = document.getElementById('holidays-list');
+  if(!holidayList.length){
+    list.innerHTML = '<div style="color:var(--text3);font-size:13px">No holidays added yet.</div>';
+    return;
+  }
+  list.innerHTML = holidayList.map(h=>`
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)">
+      <div><strong>${fmtDate(h.date)}</strong> — ${escapeHtml(h.name)}</div>
+      <button class="btn" onclick="doDeleteHoliday(${h.id})" style="padding:4px 8px;font-size:12px">Delete</button>
+    </div>`).join('');
+}
+async function doAddHoliday(){
+  const date = document.getElementById('hol-date').value;
+  const name = document.getElementById('hol-name').value.trim();
+  const err = document.getElementById('hol-err');
+  if(!date){ err.textContent = 'Pick a date.'; return; }
+  if(!name){ err.textContent = 'Enter a name.'; return; }
+  err.textContent = '';
+  const btn = document.getElementById('hol-add-btn');
+  btn.disabled = true;
+  try{
+    await sbInsert('holidays', {date, name});
+    await loadHolidays();
+    renderHolidaysList();
+    document.getElementById('hol-date').value = '';
+    document.getElementById('hol-name').value = '';
+    updateAll();
+    toast('Holiday added', `${name} — ${fmtDate(date)}`, 'green');
+  } catch(e){
+    err.textContent = (e.message||'').includes('duplicate') ? 'That date is already added.' : 'Could not add holiday.';
+  }
+  btn.disabled = false;
+}
+async function doDeleteHoliday(id){
+  try{
+    await sbDelete('holidays', id);
+    await loadHolidays();
+    renderHolidaysList();
+    updateAll();
+    toast('Holiday removed', 'It will no longer be skipped.', 'green');
+  } catch(e){
+    toast('Error', e.message, 'red');
+  }
+}
 // ── Archive ───────────────────────────────────────────────────────────────────
 async function archiveByDate(){
   if(currentProfile?.role!=='manager'){toast('Access denied','Only managers can archive.','red');return;}
@@ -2994,7 +3092,7 @@ function startAutoRefresh(){
         const ok = await refreshAuthToken();
         if(!ok){ await forceReauth('Session expired — please sign in again.'); return; }
       }
-      await Promise.all([loadOrders(),loadPhotos(),loadApprovals(),loadComments()]);updateAll();render();
+      await Promise.all([loadOrders(),loadPhotos(),loadApprovals(),loadComments(),loadHolidays()]);updateAll();render();
     }catch(e){}
   },60000);
 }
@@ -3016,7 +3114,7 @@ function toast(title,body,type){
 // ── Keyboard ──────────────────────────────────────────────────────────────────
 document.addEventListener('keydown',e=>{
   if(e.key==='Escape'){
-    closeLB();closeConfirmPhoto();closeConfirmUser();closeAddUser();closeSOModal();closePrintReportModal();colorCheckRespond(false);
+    closeLB();closeConfirmPhoto();closeConfirmUser();closeAddUser();closeSOModal();closePrintReportModal();closeHolidaysModal();colorCheckRespond(false);
   }
 });
  
