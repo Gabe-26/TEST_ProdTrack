@@ -3021,9 +3021,11 @@ function generateLabelDocument(so, cust, po, skids){
   const pages = skids.map((skid,i)=>{
     const itemsHtml = skid.items.map(it=>`
       <div class="lbl-item">
-        <div class="lbl-item-code">${it.item}</div>
+        <div class="lbl-item-row">
+          <div class="lbl-item-code">${it.item}</div>
+          <div class="lbl-item-qty">${it.qty%1===0?it.qty:it.qty.toFixed(2)}</div>
+        </div>
         <div class="lbl-item-desc">${it.desc}</div>
-        <div class="lbl-item-qty">${it.qty%1===0?it.qty:it.qty.toFixed(2)}</div>
       </div>`).join('');
     return `<div class="label">
       <div class="lbl-so">${so}</div>
@@ -3042,13 +3044,14 @@ function generateLabelDocument(so, cust, po, skids){
 *{box-sizing:border-box;margin:0;padding:0;font-family:Arial,Helvetica,sans-serif}
 body{background:#fff;color:#000}
 .label{width:4in;height:6in;padding:0.22in;position:relative;page-break-after:always;overflow:hidden}
-.lbl-so{font-size:52px;font-weight:800;border-bottom:3px solid #000;padding-bottom:6px;margin-bottom:10px;letter-spacing:1px}
+.lbl-so{font-size:52px;font-weight:800;border-bottom:3px solid #000;padding-bottom:6px;margin-bottom:10px;letter-spacing:1px;text-align:center}
 .lbl-line{font-size:20px;font-weight:700;margin-bottom:6px}
 .lbl-loc{font-size:18px;font-weight:700;margin:10px 0 4px}
 .lbl-item{margin-bottom:10px}
+.lbl-item-row{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
 .lbl-item-code{font-size:20px;font-weight:800}
+.lbl-item-qty{font-size:18px;font-weight:700;white-space:nowrap}
 .lbl-item-desc{font-size:15px;font-weight:600;line-height:1.25}
-.lbl-item-qty{font-size:18px;font-weight:700;text-align:right;margin-top:2px}
 .lbl-page{position:absolute;bottom:0.22in;right:0.22in;border:2px solid #000;padding:4px 10px;font-size:16px;font-weight:700}
 </style></head><body>${pages}</body></html>`;
   const win = window.open('', '_blank');
