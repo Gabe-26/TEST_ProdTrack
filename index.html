@@ -3023,7 +3023,7 @@ function generateLabelDocument(so, cust, po, skids){
       <div class="lbl-item">
         <div class="lbl-item-row">
           <div class="lbl-item-code">${it.item}</div>
-          <div class="lbl-item-qty">${it.qty%1===0?it.qty:it.qty.toFixed(2)}</div>
+          <div class="lbl-item-qty">${it.qty.toFixed(2)}</div>
         </div>
         <div class="lbl-item-desc">${it.desc}</div>
       </div>`).join('');
@@ -3050,7 +3050,7 @@ body{background:#fff;color:#000}
 .lbl-item{margin-bottom:10px}
 .lbl-item-row{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
 .lbl-item-code{font-size:20px;font-weight:800}
-.lbl-item-qty{font-size:30px;font-weight:800;white-space:nowrap}
+.lbl-item-qty{font-size:20px;font-weight:800;white-space:nowrap}
 .lbl-item-desc{font-size:15px;font-weight:600;line-height:1.25}
 .lbl-page{position:absolute;bottom:0.22in;right:0.22in;border:2px solid #000;padding:4px 10px;font-size:16px;font-weight:700}
 </style></head><body>${pages}</body></html>`;
