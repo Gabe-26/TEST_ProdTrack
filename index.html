@@ -3032,6 +3032,12 @@ function labelScaleForItemCount(n){
   return table[n] || 0.37;
 }
 const MAX_ITEMS_PER_LABEL_PAGE = 7;
+function viaEmoji(via){
+  if(via==='OUR TRUCK') return '🚚';
+  if(via==='PICK UP') return '📦';
+  if(via==='INSTALL/REPAIR') return '🔧';
+  return '';
+}
 function chunkSkidItems(items){
   const chunks = [];
   for(let i=0;i<items.length;i+=MAX_ITEMS_PER_LABEL_PAGE) chunks.push(items.slice(i,i+MAX_ITEMS_PER_LABEL_PAGE));
@@ -3060,7 +3066,7 @@ function renderPrintLabelPreview(){
       html += `<div class="pl-preview-wrap"><div class="pl-preview-page" style="--lbl-scale:${labelScaleForItemCount(chunk.length)}">
       <div class="lbl-so">${escapeHtml(String(labelSO).padStart(7,'0'))}</div>
       <div class="lbl-line">CUST: ${escapeHtml(cust)}</div>
-      <div class="lbl-line">SHIP VIA: ${escapeHtml(t0.via||'')}</div>
+      <div class="lbl-line">SHIP VIA: ${viaEmoji(t0.via)} ${escapeHtml(t0.via||'')}</div>
       <div class="lbl-line">PO#: ${escapeHtml(po)}</div>
       <div class="lbl-line">SHIP DATE: ${shipDate}</div>
       ${itemsHtml}
@@ -3141,7 +3147,7 @@ function generateLabelDocument(so, cust, po, skids){
       pages += `<div class="label" style="--lbl-scale:${labelScaleForItemCount(chunk.length)}">
       <div class="lbl-so">${escapeHtml(String(so).padStart(7,'0'))}</div>
       <div class="lbl-line">CUST: ${escapeHtml(cust)}</div>
-      <div class="lbl-line">SHIP VIA: ${t0.via||''}</div>
+      <div class="lbl-line">SHIP VIA: ${viaEmoji(t0.via)} ${t0.via||''}</div>
       <div class="lbl-line">PO#: ${escapeHtml(po)}</div>
       <div class="lbl-line">SHIP DATE: ${shipDate}</div>
       ${itemsHtml}
