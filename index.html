@@ -312,6 +312,18 @@ thead th{position:sticky;top:0;z-index:2;background:var(--surface);border-bottom
 .modal-label{font-size:10px;font-family:var(--mono);color:var(--text3);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:5px}
 .modal-input{width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:6px;padding:9px 12px;color:var(--text);font-family:var(--sans);font-size:13px;outline:none;transition:border-color 0.15s}
 .modal-input:focus{border-color:var(--accent)}
+#print-label-modal .modal-card{max-width:760px}
+.pl-preview-wrap{width:230px;height:345px;overflow:hidden;position:relative;border:1px solid var(--border2);border-radius:4px;background:#fff;margin-bottom:12px;flex-shrink:0}
+.pl-preview-page{position:absolute;top:0;left:0;width:4in;height:6in;padding:0.22in;box-sizing:border-box;transform:scale(0.6);transform-origin:top left;background:#fff;color:#000;font-family:Arial,Helvetica,sans-serif}
+.pl-preview-page .lbl-so{font-size:52px;font-weight:800;border-bottom:3px solid #000;padding-bottom:6px;margin-bottom:10px;letter-spacing:1px;text-align:center}
+.pl-preview-page .lbl-line{font-size:20px;font-weight:700;margin-bottom:6px}
+.pl-preview-page .lbl-loc{font-size:18px;font-weight:700;margin:10px 0 4px}
+.pl-preview-page .lbl-item{margin-bottom:10px}
+.pl-preview-page .lbl-item-row{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.pl-preview-page .lbl-item-code{font-size:20px;font-weight:800}
+.pl-preview-page .lbl-item-qty{font-size:20px;font-weight:800;white-space:nowrap}
+.pl-preview-page .lbl-item-desc{font-size:15px;font-weight:600;line-height:1.25}
+.pl-preview-page .lbl-page{position:absolute;bottom:0.22in;right:0.22in;border:2px solid #000;padding:4px 10px;font-size:16px;font-weight:700}
 .modal-select{width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:6px;padding:9px 12px;color:var(--text);font-family:var(--sans);font-size:13px;outline:none;cursor:pointer}
 .modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:20px}
 .modal-err{font-size:11px;font-family:var(--mono);color:var(--red);margin-top:8px;min-height:16px}
@@ -487,20 +499,25 @@ thead th{position:sticky;top:0;z-index:2;background:var(--surface);border-bottom
       Print label — SO <span id="pl-so-num"></span>
       <button class="modal-close" onclick="closePrintLabelModal()">✕</button>
     </div>
-    <div class="modal-field">
-      <div class="modal-label">CUST code</div>
-      <input class="modal-input" id="pl-cust" type="text" placeholder="e.g. 01-VF_610">
+    <div style="display:flex;gap:20px;align-items:flex-start">
+      <div id="pl-preview" style="max-height:65vh;overflow-y:auto"></div>
+      <div style="flex:1;min-width:0">
+        <div class="modal-field">
+          <div class="modal-label">CUST code</div>
+          <input class="modal-input" id="pl-cust" type="text" placeholder="e.g. 01-VF_610" oninput="renderPrintLabelPreview()">
+        </div>
+        <div class="modal-field">
+          <div class="modal-label">PO#</div>
+          <input class="modal-input" id="pl-po" type="text" placeholder="e.g. NORTH ST" oninput="renderPrintLabelPreview()">
+        </div>
+        <div class="modal-field">
+          <div class="modal-label">Skids</div>
+          <div id="pl-skids" style="max-height:45vh;overflow-y:auto"></div>
+          <button class="btn" style="margin-top:2px;font-size:12px" onclick="addSkid()">+ Add skid</button>
+        </div>
+        <div class="modal-err" id="pl-err"></div>
+      </div>
     </div>
-    <div class="modal-field">
-      <div class="modal-label">PO#</div>
-      <input class="modal-input" id="pl-po" type="text" placeholder="e.g. NORTH ST">
-    </div>
-    <div class="modal-field">
-      <div class="modal-label">Skids</div>
-      <div id="pl-skids"></div>
-      <button class="btn" style="margin-top:2px;font-size:12px" onclick="addSkid()">+ Add skid</button>
-    </div>
-    <div class="modal-err" id="pl-err"></div>
     <div class="modal-actions">
       <button class="btn" onclick="closePrintLabelModal()">Cancel</button>
       <button class="btn primary" onclick="doPrintLabels()">Print</button>
@@ -3008,6 +3025,38 @@ function renderPrintLabelSkids(){
       </select>
     </div>`;
   }).join('');
+  renderPrintLabelPreview();
+}
+function renderPrintLabelPreview(){
+  const wrap = document.getElementById('pl-preview');
+  const t0 = labelWoodTravelers[0];
+  if(!wrap || !t0) return;
+  const cust = document.getElementById('pl-cust')?.value.trim() || '';
+  const po = document.getElementById('pl-po')?.value.trim() || '';
+  const shipDate = fmtDate(t0.soShipRaw);
+  const location = t0.location || '';
+  const validSkids = labelSkids.filter(s=>s.items.length);
+  const total = validSkids.length;
+  wrap.innerHTML = validSkids.map((skid,i)=>{
+    const itemsHtml = skid.items.map(it=>`
+      <div class="lbl-item">
+        <div class="lbl-item-row">
+          <div class="lbl-item-code">${escapeHtml(it.item)}</div>
+          <div class="lbl-item-qty">${(parseFloat(it.qty)||0).toFixed(2)}</div>
+        </div>
+        <div class="lbl-item-desc">${escapeHtml(it.desc)}</div>
+      </div>`).join('');
+    return `<div class="pl-preview-wrap"><div class="pl-preview-page">
+      <div class="lbl-so">${escapeHtml(labelSO)}</div>
+      <div class="lbl-line">CUST: ${escapeHtml(cust)}</div>
+      <div class="lbl-line">SHIP VIA: ${escapeHtml(t0.via||'')}</div>
+      <div class="lbl-line">PO#: ${escapeHtml(po)}</div>
+      <div class="lbl-line">SHIP DATE: ${shipDate}</div>
+      <div class="lbl-loc">${escapeHtml(location)}</div>
+      ${itemsHtml}
+      <div class="lbl-page">${i+1} of ${total}</div>
+    </div></div>`;
+  }).join('') || '<div style="font-size:12px;color:var(--text3)">No skids to print yet.</div>';
 }
 function toggleEditSkidItem(si,ii){
   const key = si+'-'+ii;
