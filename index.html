@@ -3054,12 +3054,11 @@ function renderPrintLabelPreview(){
         <div class="lbl-item-desc">${escapeHtml(it.desc)}</div>
       </div>`).join('');
     return `<div class="pl-preview-wrap"><div class="pl-preview-page" style="--lbl-scale:${labelScaleForItemCount(skid.items.length)}">
-      <div class="lbl-so">${escapeHtml(labelSO)}</div>
+      <div class="lbl-so">${escapeHtml(String(labelSO).padStart(7,'0'))}</div>
       <div class="lbl-line">CUST: ${escapeHtml(cust)}</div>
       <div class="lbl-line">SHIP VIA: ${escapeHtml(t0.via||'')}</div>
       <div class="lbl-line">PO#: ${escapeHtml(po)}</div>
       <div class="lbl-line">SHIP DATE: ${shipDate}</div>
-      <div class="lbl-loc">${escapeHtml(location)}</div>
       ${itemsHtml}
       <div class="lbl-page">${i+1} of ${total}</div>
     </div></div>`;
@@ -3133,12 +3132,11 @@ function generateLabelDocument(so, cust, po, skids){
         <div class="lbl-item-desc">${escapeHtml(it.desc)}</div>
       </div>`).join('');
     return `<div class="label" style="--lbl-scale:${labelScaleForItemCount(skid.items.length)}">
-      <div class="lbl-so">${so}</div>
+      <div class="lbl-so">${escapeHtml(String(so).padStart(7,'0'))}</div>
       <div class="lbl-line">CUST: ${escapeHtml(cust)}</div>
       <div class="lbl-line">SHIP VIA: ${t0.via||''}</div>
       <div class="lbl-line">PO#: ${escapeHtml(po)}</div>
       <div class="lbl-line">SHIP DATE: ${shipDate}</div>
-      <div class="lbl-loc">${location}</div>
       ${itemsHtml}
       <div class="lbl-page">${i+1} of ${total}</div>
     </div>`;
