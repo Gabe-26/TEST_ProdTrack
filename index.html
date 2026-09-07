@@ -3028,11 +3028,14 @@ function renderPrintLabelSkids(){
   renderPrintLabelPreview();
 }
 function labelScaleForItemCount(n){
-  if(n<=1) return 1;
-  if(n===2) return 0.8;
-  if(n===3) return 0.66;
-  if(n===4) return 0.56;
-  return 0.48;
+  const table = {1:1, 2:0.8, 3:0.66, 4:0.56, 5:0.48, 6:0.42, 7:0.37};
+  return table[n] || 0.37;
+}
+const MAX_ITEMS_PER_LABEL_PAGE = 7;
+function chunkSkidItems(items){
+  const chunks = [];
+  for(let i=0;i<items.length;i+=MAX_ITEMS_PER_LABEL_PAGE) chunks.push(items.slice(i,i+MAX_ITEMS_PER_LABEL_PAGE));
+  return chunks.length ? chunks : [[]];
 }
 function renderPrintLabelPreview(){
   const wrap = document.getElementById('pl-preview');
@@ -3041,11 +3044,12 @@ function renderPrintLabelPreview(){
   const cust = document.getElementById('pl-cust')?.value.trim() || '';
   const po = document.getElementById('pl-po')?.value.trim() || '';
   const shipDate = fmtDate(t0.soShipRaw);
-  const location = t0.location || '';
   const validSkids = labelSkids.filter(s=>s.items.length);
   const total = validSkids.length;
-  wrap.innerHTML = validSkids.map((skid,i)=>{
-    const itemsHtml = skid.items.map(it=>`
+  let html = '';
+  validSkids.forEach((skid,i)=>{
+    chunkSkidItems(skid.items).forEach(chunk=>{
+      const itemsHtml = chunk.map(it=>`
       <div class="lbl-item">
         <div class="lbl-item-row">
           <div class="lbl-item-code">${escapeHtml(it.item)}</div>
@@ -3053,7 +3057,7 @@ function renderPrintLabelPreview(){
         </div>
         <div class="lbl-item-desc">${escapeHtml(it.desc)}</div>
       </div>`).join('');
-    return `<div class="pl-preview-wrap"><div class="pl-preview-page" style="--lbl-scale:${labelScaleForItemCount(skid.items.length)}">
+      html += `<div class="pl-preview-wrap"><div class="pl-preview-page" style="--lbl-scale:${labelScaleForItemCount(chunk.length)}">
       <div class="lbl-so">${escapeHtml(String(labelSO).padStart(7,'0'))}</div>
       <div class="lbl-line">CUST: ${escapeHtml(cust)}</div>
       <div class="lbl-line">SHIP VIA: ${escapeHtml(t0.via||'')}</div>
@@ -3062,7 +3066,9 @@ function renderPrintLabelPreview(){
       ${itemsHtml}
       <div class="lbl-page">${i+1} of ${total}</div>
     </div></div>`;
-  }).join('') || '<div style="font-size:12px;color:var(--text3)">No skids to print yet.</div>';
+    });
+  });
+  wrap.innerHTML = html || '<div style="font-size:12px;color:var(--text3)">No skids to print yet.</div>';
 }
 function toggleEditSkidItem(si,ii){
   const key = si+'-'+ii;
@@ -3120,10 +3126,11 @@ function doPrintLabels(){
 function generateLabelDocument(so, cust, po, skids){
   const t0 = labelWoodTravelers[0];
   const shipDate = fmtDate(t0.soShipRaw);
-  const location = t0.location || '';
   const total = skids.length;
-  const pages = skids.map((skid,i)=>{
-    const itemsHtml = skid.items.map(it=>`
+  let pages = '';
+  skids.forEach((skid,i)=>{
+    chunkSkidItems(skid.items).forEach(chunk=>{
+      const itemsHtml = chunk.map(it=>`
       <div class="lbl-item">
         <div class="lbl-item-row">
           <div class="lbl-item-code">${escapeHtml(it.item)}</div>
@@ -3131,7 +3138,7 @@ function generateLabelDocument(so, cust, po, skids){
         </div>
         <div class="lbl-item-desc">${escapeHtml(it.desc)}</div>
       </div>`).join('');
-    return `<div class="label" style="--lbl-scale:${labelScaleForItemCount(skid.items.length)}">
+      pages += `<div class="label" style="--lbl-scale:${labelScaleForItemCount(chunk.length)}">
       <div class="lbl-so">${escapeHtml(String(so).padStart(7,'0'))}</div>
       <div class="lbl-line">CUST: ${escapeHtml(cust)}</div>
       <div class="lbl-line">SHIP VIA: ${t0.via||''}</div>
@@ -3140,7 +3147,8 @@ function generateLabelDocument(so, cust, po, skids){
       ${itemsHtml}
       <div class="lbl-page">${i+1} of ${total}</div>
     </div>`;
-  }).join('');
+    });
+  });
   const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>ProdTrack — Label ${so}</title>
 <style>
 @page{size:4in 6in;margin:0}
