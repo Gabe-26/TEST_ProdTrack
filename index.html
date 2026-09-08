@@ -2969,8 +2969,8 @@ let labelDeptTravelers = [];
 let labelSkids = []; // [{ items: [{traveler,item,desc,qty}] }]
 let labelEditingItems = new Set(); // keys "si-ii" currently in wording-edit mode
 const LABEL_DEPT_CONFIG = {
-  wood: { cap: 20, allowCombine: true, widthIn: 4, heightIn: 6, sizeScale: 1 },
-  gate: { cap: 1,  allowCombine: false, widthIn: 4, heightIn: 3, sizeScale: 0.5 }
+  wood: { cap: 20, allowCombine: true, widthIn: 4, heightIn: 6, previewScale: 1,   printScale: 1 },
+  gate: { cap: 1,  allowCombine: false, widthIn: 4, heightIn: 3, previewScale: 0.5, printScale: 0.65 }
 };
 
 function openPrintLabelModal(so){
@@ -3101,7 +3101,7 @@ function renderPrintLabelPreview(){
         </div>
         <div class="lbl-item-desc">${escapeHtml(it.desc)}</div>
       </div>`).join('');
-      html += `<div class="pl-preview-wrap" style="width:${wrapW}px;height:${wrapH}px"><div class="pl-preview-page" style="width:${cfg.widthIn}in;height:${cfg.heightIn}in;--lbl-scale:${labelScaleForItemCount(chunk.length)};--lbl-dept-scale:${cfg.sizeScale}">
+      html += `<div class="pl-preview-wrap" style="width:${wrapW}px;height:${wrapH}px"><div class="pl-preview-page" style="width:${cfg.widthIn}in;height:${cfg.heightIn}in;--lbl-scale:${labelScaleForItemCount(chunk.length)};--lbl-dept-scale:${cfg.previewScale}">
       <div class="lbl-so">${escapeHtml(String(labelSO).padStart(7,'0'))}</div>
       <div class="lbl-line">CUST: ${escapeHtml(cust)}</div>
       <div class="lbl-line">SHIP VIA: ${escapeHtml(t0.via||'')}</div>
@@ -3188,7 +3188,7 @@ function generateLabelDocument(so, cust, po, skids){
         </div>
         <div class="lbl-item-desc">${escapeHtml(it.desc)}</div>
       </div>`).join('');
-      pages += `<div class="label" style="--lbl-scale:${labelScaleForItemCount(chunk.length)};--lbl-dept-scale:${cfg.sizeScale}">
+      pages += `<div class="label" style="--lbl-scale:${labelScaleForItemCount(chunk.length)};--lbl-dept-scale:${cfg.printScale}">
       <div class="lbl-so">${escapeHtml(String(so).padStart(7,'0'))}</div>
       <div class="lbl-line">CUST: ${escapeHtml(cust)}</div>
       <div class="lbl-line">SHIP VIA: ${t0.via||''}</div>
