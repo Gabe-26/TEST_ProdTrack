@@ -315,14 +315,14 @@ thead th{position:sticky;top:0;z-index:2;background:var(--surface);border-bottom
 #print-label-modal .modal-card{max-width:820px}
 .pl-preview-wrap{width:288px;height:432px;overflow:hidden;position:relative;border:1px solid var(--border2);border-radius:4px;background:#fff;margin-bottom:12px;flex-shrink:0}
 .pl-preview-page{position:absolute;top:0;left:0;width:4in;height:6in;padding:0.22in;box-sizing:border-box;transform:scale(0.75);transform-origin:top left;background:#fff;color:#000;font-family:Arial,Helvetica,sans-serif}
-.pl-preview-page .lbl-so{font-size:66px;font-weight:800;border-bottom:3px solid #000;padding-bottom:6px;margin-bottom:10px;letter-spacing:1px;text-align:center}
-.pl-preview-page .lbl-line{font-size:20px;font-weight:700;margin-bottom:6px}
+.pl-preview-page .lbl-so{font-size:calc(66px * var(--lbl-dept-scale,1));font-weight:800;border-bottom:3px solid #000;padding-bottom:calc(6px * var(--lbl-dept-scale,1));margin-bottom:calc(10px * var(--lbl-dept-scale,1));letter-spacing:1px;text-align:center}
+.pl-preview-page .lbl-line{font-size:calc(20px * var(--lbl-dept-scale,1));font-weight:700;margin-bottom:calc(6px * var(--lbl-dept-scale,1))}
 .pl-preview-page .lbl-loc{font-size:18px;font-weight:700;margin:10px 0 4px}
-.pl-preview-page .lbl-item{margin-bottom:calc(14px * var(--lbl-scale,1))}
+.pl-preview-page .lbl-item{margin-bottom:calc(14px * var(--lbl-scale,1) * var(--lbl-dept-scale,1))}
 .pl-preview-page .lbl-item-row{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
-.pl-preview-page .lbl-item-code{font-size:calc(30px * var(--lbl-scale,1));font-weight:800}
-.pl-preview-page .lbl-item-qty{font-size:calc(30px * var(--lbl-scale,1));font-weight:800;white-space:nowrap}
-.pl-preview-page .lbl-item-desc{font-size:calc(19px * var(--lbl-scale,1));font-weight:600;line-height:1.3}
+.pl-preview-page .lbl-item-code{font-size:calc(30px * var(--lbl-scale,1) * var(--lbl-dept-scale,1));font-weight:800}
+.pl-preview-page .lbl-item-qty{font-size:calc(30px * var(--lbl-scale,1) * var(--lbl-dept-scale,1));font-weight:800;white-space:nowrap}
+.pl-preview-page .lbl-item-desc{font-size:calc(19px * var(--lbl-scale,1) * var(--lbl-dept-scale,1));font-weight:600;line-height:1.3}
 .pl-preview-page .lbl-page{position:absolute;bottom:0.22in;right:0.22in;border:2px solid #000;padding:4px 10px;font-size:16px;font-weight:700}
 .pl-preview-page .lbl-bottom-row{position:absolute;bottom:0.22in;left:0.22in;right:0.22in;display:flex;align-items:stretch;gap:8px;height:32px}
 .pl-preview-page .lbl-color-tag{flex:1;border:2px solid #000;border-radius:2px}
@@ -501,6 +501,13 @@ thead th{position:sticky;top:0;z-index:2;background:var(--surface);border-bottom
     <div class="modal-title">
       Print label — SO <span id="pl-so-num"></span>
       <button class="modal-close" onclick="closePrintLabelModal()">✕</button>
+    </div>
+    <div class="modal-field" id="pl-dept-picker" style="display:none">
+      <div class="modal-label">Department</div>
+      <div style="display:flex;gap:8px">
+        <button class="btn primary" id="pl-dept-wood-btn" onclick="setPrintLabelDept('wood')">Wood</button>
+        <button class="btn" id="pl-dept-gate-btn" onclick="setPrintLabelDept('gate')">Gate</button>
+      </div>
     </div>
     <div style="display:flex;gap:20px;align-items:flex-start">
       <div id="pl-preview" style="max-height:65vh;overflow-y:auto"></div>
@@ -1958,6 +1965,7 @@ function render(){
  
     const isMgr = currentProfile?.role === 'manager';
     const hasWoodTravelers = orders.some(o=>o.so===so && o.department==='wood');
+    const hasGateTravelers = orders.some(o=>o.so===so && o.department==='gate');
     // Approval status for SO
     const approvedTravelers = travelers.filter(o => approvals[o.traveler]);
     const allApproved = travelers.length > 0 && approvedTravelers.length === travelers.length;
@@ -1993,7 +2001,7 @@ function render(){
       <td><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
         ${picTag}
         ${isMgr && !allApproved ? `<button class="approve-btn" onclick="event.stopPropagation();confirmColorThenApproveAll('${so}')" style="font-size:10px;padding:3px 8px">Approve all</button>` : ''}
-        ${isMgr && hasWoodTravelers ? `<button class="btn print-label-btn" onclick="event.stopPropagation();openPrintLabelModal('${so}')" style="font-size:10px;padding:3px 8px">Print label</button>` : ''}
+        ${isMgr && (hasWoodTravelers||hasGateTravelers) ? `<button class="btn print-label-btn" onclick="event.stopPropagation();openPrintLabelModal('${so}')" style="font-size:10px;padding:3px 8px">Print label</button>` : ''}
       </div></td>
     </tr>`;
  
@@ -2956,44 +2964,65 @@ ${soData.map(s => {
 
 // ── Print label (Wood only, per SO, skid-based) ────────────────────────────────
 let labelSO = null;
-let labelWoodTravelers = [];
+let labelDept = 'wood';
+let labelDeptTravelers = [];
 let labelSkids = []; // [{ items: [{traveler,item,desc,qty}] }]
 let labelEditingItems = new Set(); // keys "si-ii" currently in wording-edit mode
+const LABEL_DEPT_CONFIG = {
+  wood: { cap: 20, allowCombine: true, widthIn: 4, heightIn: 6, sizeScale: 1 },
+  gate: { cap: 1,  allowCombine: false, widthIn: 4, heightIn: 3, sizeScale: 0.65 }
+};
 
 function openPrintLabelModal(so){
   if(currentProfile?.role!=='manager') return;
-  const travelers = orders.filter(o=>o.so===so && o.department==='wood');
-  if(!travelers.length){ toast('No Wood travelers', 'This SO has no Wood department travelers.', 'amber'); return; }
+  const woodTravelers = orders.filter(o=>o.so===so && o.department==='wood');
+  const gateTravelers = orders.filter(o=>o.so===so && o.department==='gate');
+  if(!woodTravelers.length && !gateTravelers.length){ toast('No Wood/Gate travelers', 'This SO has no Wood or Gate department travelers.', 'amber'); return; }
   labelSO = so;
-  labelWoodTravelers = travelers;
+  window._plWoodTravelers = woodTravelers;
+  window._plGateTravelers = gateTravelers;
+  const picker = document.getElementById('pl-dept-picker');
+  if(woodTravelers.length && gateTravelers.length){
+    picker.style.display = '';
+  } else {
+    picker.style.display = 'none';
+  }
+  document.getElementById('pl-so-num').textContent = so;
+  document.getElementById('pl-cust').value = '';
+  document.getElementById('pl-po').value = '';
+  setPrintLabelDept(woodTravelers.length ? 'wood' : 'gate');
+  document.getElementById('print-label-modal').classList.add('open');
+}
+function setPrintLabelDept(dept){
+  labelDept = dept;
+  labelDeptTravelers = dept==='wood' ? window._plWoodTravelers : window._plGateTravelers;
+  document.getElementById('pl-dept-wood-btn')?.classList.toggle('primary', dept==='wood');
+  document.getElementById('pl-dept-gate-btn')?.classList.toggle('primary', dept==='gate');
   labelEditingItems = new Set();
-  // Default split: each traveler independently, capped at 20 per skid. Edit before printing.
+  const cap = LABEL_DEPT_CONFIG[dept].cap;
   labelSkids = [];
-  travelers.forEach(t=>{
+  labelDeptTravelers.forEach(t=>{
     let remaining = t.qty;
-    if(remaining < 20){
+    if(remaining <= cap){
       labelSkids.push({items:[{traveler:t.traveler, item:t.item, desc:t.desc, qty:remaining}]});
     } else {
       while(remaining > 0){
-        const q = Math.min(20, remaining);
+        const q = Math.min(cap, remaining);
         labelSkids.push({items:[{traveler:t.traveler, item:t.item, desc:t.desc, qty:q}]});
         remaining -= q;
       }
     }
   });
-  document.getElementById('pl-so-num').textContent = so;
-  document.getElementById('pl-cust').value = '';
-  document.getElementById('pl-po').value = '';
   document.getElementById('pl-err').textContent = '';
   renderPrintLabelSkids();
-  document.getElementById('print-label-modal').classList.add('open');
 }
 function closePrintLabelModal(){ document.getElementById('print-label-modal').classList.remove('open'); }
 
 function renderPrintLabelSkids(){
   const wrap = document.getElementById('pl-skids');
+  const allowCombine = LABEL_DEPT_CONFIG[labelDept].allowCombine;
   wrap.innerHTML = labelSkids.map((skid,si)=>{
-    const itemOptions = labelWoodTravelers.map(t=>`<option value="${t.traveler}">${t.traveler} — ${t.item}</option>`).join('');
+    const itemOptions = labelDeptTravelers.map(t=>`<option value="${t.traveler}">${t.traveler} — ${t.item}</option>`).join('');
     const rows = skid.items.map((it,ii)=>{
       const key = si+'-'+ii;
       if(labelEditingItems.has(key)){
@@ -3022,10 +3051,10 @@ function renderPrintLabelSkids(){
         ${labelSkids.length>1?`<button class="btn" style="padding:2px 8px;font-size:11px" onclick="removeSkid(${si})">Remove skid</button>`:''}
       </div>
       ${rows}
-      <select class="modal-input" style="margin-top:6px;font-size:12px" onchange="addItemToSkid(${si},this.value);this.value=''">
+      ${allowCombine ? `<select class="modal-input" style="margin-top:6px;font-size:12px" onchange="addItemToSkid(${si},this.value);this.value=''">
         <option value="">+ Add item to this skid…</option>
         ${itemOptions}
-      </select>
+      </select>` : ''}
     </div>`;
   }).join('');
   renderPrintLabelPreview();
@@ -3052,8 +3081,10 @@ function chunkSkidItems(items){
 }
 function renderPrintLabelPreview(){
   const wrap = document.getElementById('pl-preview');
-  const t0 = labelWoodTravelers[0];
+  const t0 = labelDeptTravelers[0];
   if(!wrap || !t0) return;
+  const cfg = LABEL_DEPT_CONFIG[labelDept];
+  const wrapW = cfg.widthIn*72, wrapH = cfg.heightIn*72; // 96px/in * 0.75 scale
   const cust = document.getElementById('pl-cust')?.value.trim() || '';
   const po = document.getElementById('pl-po')?.value.trim() || '';
   const shipDate = fmtDate(t0.soShipRaw);
@@ -3070,7 +3101,7 @@ function renderPrintLabelPreview(){
         </div>
         <div class="lbl-item-desc">${escapeHtml(it.desc)}</div>
       </div>`).join('');
-      html += `<div class="pl-preview-wrap"><div class="pl-preview-page" style="--lbl-scale:${labelScaleForItemCount(chunk.length)}">
+      html += `<div class="pl-preview-wrap" style="width:${wrapW}px;height:${wrapH}px"><div class="pl-preview-page" style="width:${cfg.widthIn}in;height:${cfg.heightIn}in;--lbl-scale:${labelScaleForItemCount(chunk.length)};--lbl-dept-scale:${cfg.sizeScale}">
       <div class="lbl-so">${escapeHtml(String(labelSO).padStart(7,'0'))}</div>
       <div class="lbl-line">CUST: ${escapeHtml(cust)}</div>
       <div class="lbl-line">SHIP VIA: ${escapeHtml(t0.via||'')}</div>
@@ -3093,7 +3124,7 @@ function toggleEditSkidItem(si,ii){
 }
 function updateSkidItemField(si,ii,field,val){ labelSkids[si].items[ii][field] = val; }
 function travelerOriginalQty(travelerNum){
-  const t = labelWoodTravelers.find(x=>String(x.traveler)===String(travelerNum));
+  const t = labelDeptTravelers.find(x=>String(x.traveler)===String(travelerNum));
   return t ? t.qty : Infinity;
 }
 function travelerAllocatedQty(travelerNum, excludeSi=null, excludeIi=null){
@@ -3109,9 +3140,11 @@ function updateSkidItemQty(si,ii,val){
   const it = labelSkids[si].items[ii];
   let qty = parseFloat(val)||0;
   const original = travelerOriginalQty(it.traveler);
-  const maxAllowed = Math.max(0, original - travelerAllocatedQty(it.traveler, si, ii));
+  const cfg = LABEL_DEPT_CONFIG[labelDept];
+  const perSkidCap = cfg.allowCombine ? Infinity : cfg.cap;
+  const maxAllowed = Math.min(perSkidCap, Math.max(0, original - travelerAllocatedQty(it.traveler, si, ii)));
   if(qty > maxAllowed){
-    toast('Qty capped', `Traveler ${it.traveler} totals ${original.toFixed(2)} — only ${maxAllowed.toFixed(2)} left to allocate.`, 'amber');
+    toast('Qty capped', `Max ${maxAllowed.toFixed(2)} on this skid (traveler ${it.traveler} totals ${original.toFixed(2)}).`, 'amber');
     qty = maxAllowed;
   }
   it.qty = qty;
@@ -3121,7 +3154,7 @@ function removeSkidItem(si,ii){ labelSkids[si].items.splice(ii,1); renderPrintLa
 function removeSkid(si){ labelSkids.splice(si,1); renderPrintLabelSkids(); }
 function addItemToSkid(si,travelerNum){
   if(!travelerNum) return;
-  const t = labelWoodTravelers.find(x=>String(x.traveler)===String(travelerNum));
+  const t = labelDeptTravelers.find(x=>String(x.traveler)===String(travelerNum));
   if(!t) return;
   const remaining = Math.max(0, t.qty - travelerAllocatedQty(travelerNum));
   labelSkids[si].items.push({traveler:t.traveler, item:t.item, desc:t.desc, qty:remaining});
@@ -3140,7 +3173,8 @@ function doPrintLabels(){
   closePrintLabelModal();
 }
 function generateLabelDocument(so, cust, po, skids){
-  const t0 = labelWoodTravelers[0];
+  const t0 = labelDeptTravelers[0];
+  const cfg = LABEL_DEPT_CONFIG[labelDept];
   const shipDate = fmtDate(t0.soShipRaw);
   const total = skids.length;
   let pages = '';
@@ -3154,7 +3188,7 @@ function generateLabelDocument(so, cust, po, skids){
         </div>
         <div class="lbl-item-desc">${escapeHtml(it.desc)}</div>
       </div>`).join('');
-      pages += `<div class="label" style="--lbl-scale:${labelScaleForItemCount(chunk.length)}">
+      pages += `<div class="label" style="--lbl-scale:${labelScaleForItemCount(chunk.length)};--lbl-dept-scale:${cfg.sizeScale}">
       <div class="lbl-so">${escapeHtml(String(so).padStart(7,'0'))}</div>
       <div class="lbl-line">CUST: ${escapeHtml(cust)}</div>
       <div class="lbl-line">SHIP VIA: ${t0.via||''}</div>
@@ -3170,18 +3204,17 @@ function generateLabelDocument(so, cust, po, skids){
   });
   const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>ProdTrack — Label ${so}</title>
 <style>
-@page{size:4in 6in;margin:0}
+@page{size:${cfg.widthIn}in ${cfg.heightIn}in;margin:0}
 *{box-sizing:border-box;margin:0;padding:0;font-family:Arial,Helvetica,sans-serif}
 body{background:#fff;color:#000}
-.label{width:4in;height:6in;padding:0.22in;position:relative;page-break-after:always;overflow:hidden}
-.lbl-so{font-size:66px;font-weight:800;border-bottom:3px solid #000;padding-bottom:6px;margin-bottom:10px;letter-spacing:1px;text-align:center}
-.lbl-line{font-size:20px;font-weight:700;margin-bottom:6px}
-.lbl-loc{font-size:18px;font-weight:700;margin:10px 0 4px}
-.lbl-item{margin-bottom:calc(14px * var(--lbl-scale,1))}
+.label{width:${cfg.widthIn}in;height:${cfg.heightIn}in;padding:0.22in;position:relative;page-break-after:always;overflow:hidden}
+.lbl-so{font-size:calc(66px * var(--lbl-dept-scale,1));font-weight:800;border-bottom:3px solid #000;padding-bottom:calc(6px * var(--lbl-dept-scale,1));margin-bottom:calc(10px * var(--lbl-dept-scale,1));letter-spacing:1px;text-align:center}
+.lbl-line{font-size:calc(20px * var(--lbl-dept-scale,1));font-weight:700;margin-bottom:calc(6px * var(--lbl-dept-scale,1))}
+.lbl-item{margin-bottom:calc(14px * var(--lbl-scale,1) * var(--lbl-dept-scale,1))}
 .lbl-item-row{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
-.lbl-item-code{font-size:calc(30px * var(--lbl-scale,1));font-weight:800}
-.lbl-item-qty{font-size:calc(30px * var(--lbl-scale,1));font-weight:800;white-space:nowrap}
-.lbl-item-desc{font-size:calc(19px * var(--lbl-scale,1));font-weight:600;line-height:1.3}
+.lbl-item-code{font-size:calc(30px * var(--lbl-scale,1) * var(--lbl-dept-scale,1));font-weight:800}
+.lbl-item-qty{font-size:calc(30px * var(--lbl-scale,1) * var(--lbl-dept-scale,1));font-weight:800;white-space:nowrap}
+.lbl-item-desc{font-size:calc(19px * var(--lbl-scale,1) * var(--lbl-dept-scale,1));font-weight:600;line-height:1.3}
 .lbl-page{border:2px solid #000;padding:4px 10px;font-size:16px;font-weight:700}
 .lbl-bottom-row{position:absolute;bottom:0.22in;left:0.22in;right:0.22in;display:flex;align-items:stretch;gap:8px;height:32px}
 .lbl-color-tag{flex:1;border:2px solid #000;border-radius:2px}
