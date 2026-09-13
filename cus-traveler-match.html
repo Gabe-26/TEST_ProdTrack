@@ -667,7 +667,7 @@ function splitRowByColumns(headerLine, valueLine, gapThreshold=30){
     starts.forEach((s,i)=>{ const d=Math.abs(t.x-s); if(d<bestDist){ bestDist=d; best=i; } });
     buckets[best].push(t);
   });
-  return buckets.map(b => b.sort((a,b)=>a.x-b.x).map(t=>t.text).join(' '));
+  return buckets.map(b => b.sort((a,b)=>a.x-b.x).map(t=>t.str).join(' '));
 }
 
 // "9/17/2026" → "2026-09-17". Same conversion ProdTrack's own CSV parser uses.
