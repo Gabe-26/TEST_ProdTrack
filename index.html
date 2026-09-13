@@ -2523,6 +2523,10 @@ async function saveShipDate(so, oldRaw){
  
     // Update local state
     orders.forEach(o => { if(o.so === so){ o.soShipRaw = newRaw; o.soShip = newFmt; } });
+
+    // Notify each department with travelers on this SO (same as bulk Change Dates)
+    await notifyDateChangeInbox(so, oldRaw, newRaw);
+
  
     closeDatePicker();
     updateAll();
@@ -2533,6 +2537,28 @@ async function saveShipDate(so, oldRaw){
     if(saveBtn){ saveBtn.disabled=false; saveBtn.textContent='Save'; }
   }
 }
+
+// Shared: insert one department_batches row (type:'date_change') per department
+// that has travelers on `so`. Used by both the single-order date picker and the
+// bulk Change Dates tool. Never blocks the date change itself if it fails.
+async function notifyDateChangeInbox(so, oldRaw, newRaw){
+  const grp = groupBySO(orders).find(g=>g.so===so);
+  if(!grp) return [];
+  const depts = [...new Set(grp.travelers.map(t=>t.department).filter(Boolean))];
+  if(!depts.length) return [];
+  const customer = grp.travelers[0].customer;
+  const actor = currentProfile?.full_name || 'unknown';
+  const rows = depts.map(d=>({
+    department: d, type: 'date_change', uploaded_by: actor,
+    entries: [{so, customer, old_ship_date: fmtDate(oldRaw), new_ship_date: fmtDate(newRaw)}]
+  }));
+  try{
+    const inserted = await sbInsert('department_batches', rows);
+    departmentBatches = [...inserted, ...departmentBatches];
+    return inserted;
+  } catch(e){ return []; }
+}
+
 function toggleExpandAll(){
   allExp=!allExp;
   const btn=document.getElementById('xbtn');
@@ -2897,8 +2923,8 @@ async function sendDateChanges(){
   btn.disabled = true; btn.textContent = 'Sending…';
   const batch = pendingDateChanges.slice();
   const actor = currentProfile?.full_name || 'unknown';
+  let notifCount = 0;
   try{
-    // 1. Update ship dates + activity log (same mechanics as the single-order picker)
     for(const p of batch){
       const r = await fetch(`${SUPA_URL}/rest/v1/orders?so=eq.${p.so}&archived=eq.false`, {
         method:'PATCH', headers:{...H(),'Prefer':'return=minimal'}, body: JSON.stringify({so_ship: p.newRaw})
@@ -2907,28 +2933,14 @@ async function sendDateChanges(){
       const oldFmt = fmtDate(p.oldRaw), newFmt = fmtDate(p.newRaw);
       await logActivity('date_change', p.so, `${actor} changed order ${p.so} from ${oldFmt} to ${newFmt}`);
       orders.forEach(o=>{ if(o.so===p.so){ o.soShipRaw=p.newRaw; o.soShip=newFmt; } });
-    }
-    // 2. One Inbox notification per department that has travelers on that SO
-    const rowsToInsert = [];
-    for(const p of batch){
-      const grp = groupBySO(orders).find(g=>g.so===p.so);
-      const depts = [...new Set((grp?.travelers||[]).map(t=>t.department).filter(Boolean))];
-      for(const d of depts){
-        rowsToInsert.push({
-          department: d, type: 'date_change', uploaded_by: actor,
-          entries: [{so: p.so, customer: p.customer, old_ship_date: fmtDate(p.oldRaw), new_ship_date: fmtDate(p.newRaw)}]
-        });
-      }
-    }
-    if(rowsToInsert.length){
-      const inserted = await sbInsert('department_batches', rowsToInsert);
-      departmentBatches = [...inserted, ...departmentBatches];
+      const inserted = await notifyDateChangeInbox(p.so, p.oldRaw, p.newRaw);
+      notifCount += inserted.length;
     }
     pendingDateChanges = [];
     renderPendingDateChanges();
     renderChangeDatesSearch();
     updateAll(); render();
-    toast('Date changes sent', `${batch.length} order${batch.length!==1?'s':''} updated · ${rowsToInsert.length} notification${rowsToInsert.length!==1?'s':''} sent`, 'green');
+    toast('Date changes sent', `${batch.length} order${batch.length!==1?'s':''} updated · ${notifCount} notification${notifCount!==1?'s':''} sent`, 'green');
   } catch(e){
     toast('Error', e.message, 'red');
   } finally {
