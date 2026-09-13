@@ -313,6 +313,18 @@ thead th{position:sticky;top:0;z-index:2;background:var(--surface);border-bottom
 .modal-input{width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:6px;padding:9px 12px;color:var(--text);font-family:var(--sans);font-size:13px;outline:none;transition:border-color 0.15s}
 .modal-input:focus{border-color:var(--accent)}
 #print-label-modal .modal-card{max-width:820px}
+#wood-codes-modal .modal-card{max-width:1100px}
+.wc-toolbar{display:flex;gap:10px;align-items:center;margin-bottom:10px;flex-wrap:wrap}
+.wc-bulkbar{display:flex;gap:8px;align-items:center;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:8px 12px;margin-bottom:10px}
+.wc-table-wrap{max-height:50vh;overflow-y:auto;border:1px solid var(--border);border-radius:8px}
+.wc-table{width:100%;border-collapse:collapse;font-size:12px}
+.wc-table th{position:sticky;top:0;background:var(--surface2);text-align:left;padding:8px 10px;font-size:10px;font-family:var(--mono);color:var(--text3);text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid var(--border2)}
+.wc-table td{padding:6px 10px;border-bottom:1px solid var(--border);vertical-align:middle}
+.wc-type-btn{font-size:10px;font-family:var(--mono);padding:3px 8px;border-radius:5px;border:1px solid var(--border2);background:transparent;color:var(--text2);cursor:pointer;margin-right:4px}
+.wc-type-btn.active.wc-section{background:var(--green-dim);color:var(--green);border-color:var(--green)}
+.wc-type-btn.active.wc-gate{background:var(--pink-dim);color:var(--pink);border-color:var(--pink)}
+.wc-type-btn.active.wc-post{background:var(--amber-dim);color:var(--amber);border-color:var(--amber)}
+.wc-type-btn.active.wc-misc{background:var(--surface3);color:var(--text);border-color:var(--border2)}
 .pl-preview-wrap{width:288px;height:432px;overflow:hidden;position:relative;border:1px solid var(--border2);border-radius:4px;background:#fff;margin-bottom:12px;flex-shrink:0}
 .pl-preview-page{position:absolute;top:0;left:0;width:4in;height:6in;padding:calc(0.22in - var(--lbl-top-reduce,5px)) 0.22in 0.22in 0.22in;box-sizing:border-box;transform:scale(0.75);transform-origin:top left;background:#fff;color:#000;font-family:Arial,Helvetica,sans-serif}
 .pl-preview-page .lbl-so{font-size:65px;font-weight:800;margin-bottom:0;letter-spacing:1px;text-align:center}
@@ -327,6 +339,7 @@ thead th{position:sticky;top:0;z-index:2;background:var(--surface);border-bottom
 .pl-preview-page .lbl-page{position:absolute;bottom:0.22in;right:0.22in;border:2px solid #000;padding:4px 10px;font-size:16px;font-weight:700}
 .pl-preview-page .lbl-bottom-row{position:absolute;bottom:0.22in;left:0.22in;right:0.22in;display:flex;align-items:stretch;gap:8px;height:32px}
 .pl-preview-page .lbl-color-tag{flex:1;border:2px solid #000;border-radius:2px}
+.pl-preview-page .lbl-color-tag-text{display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px;letter-spacing:1px;color:#000;background:transparent}
 .pl-preview-page .lbl-bottom-row .lbl-page{position:static;display:flex;align-items:center;justify-content:center;white-space:nowrap}
 .modal-select{width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:6px;padding:9px 12px;color:var(--text);font-family:var(--sans);font-size:13px;outline:none;cursor:pointer}
 .modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:20px}
@@ -578,6 +591,51 @@ thead th{position:sticky;top:0;z-index:2;background:var(--surface);border-bottom
     </div>
   </div>
 </div>
+
+<!-- Wood codes modal (owner only) — manually classify Wood item codes as Section/Gate/Post -->
+<div class="modal-overlay" id="wood-codes-modal">
+  <div class="modal-card">
+    <div class="modal-title">
+      Wood codes
+      <button class="modal-close" onclick="closeWoodCodesModal()">✕</button>
+    </div>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:14px">Classify each Wood item code as Section, Gate, or Post. Once set, this always wins over the automatic guess on the Print Report. Re-uploading the code list only adds/updates codes — it never resets a classification you've already set.</div>
+    <div class="modal-field">
+      <div class="modal-label">Wood codes CSV (needs "Item Code" and "Description" columns)</div>
+      <input type="file" accept=".csv" id="wc-file-input" onchange="handleWoodCodesCSVUpload(this.files[0])">
+    </div>
+    <div id="wc-status" style="font-size:12px;font-family:var(--mono);color:var(--text3);margin:6px 0 14px"></div>
+    <div class="wc-toolbar">
+      <input class="modal-input" style="max-width:240px" type="text" placeholder="Search code or description" oninput="onWoodCodesSearch(this.value)">
+      <select class="modal-input" style="max-width:180px" onchange="onWoodCodesFilterChange(this.value)">
+        <option value="all">All codes</option>
+        <option value="unclassified">Unclassified only</option>
+      </select>
+      <select class="modal-input" style="max-width:140px" id="wc-prod-filter" onchange="onWoodCodesProdFilterChange(this.value)">
+        <option value="">All Prod lines</option>
+      </select>
+      <span id="wc-count" style="font-size:11px;font-family:var(--mono);color:var(--text3)"></span>
+    </div>
+    <div class="wc-bulkbar">
+      <input type="checkbox" id="wc-selectall" onchange="toggleWoodCodeSelectAll(this.checked)">
+      <span id="wc-selected-count" style="font-size:11px;font-family:var(--mono);color:var(--text3)">0 selected</span>
+      <span style="margin-left:auto;font-size:11px;color:var(--text3)">Set selected to:</span>
+      <button class="wc-type-btn wc-section" onclick="applyTypeToSelected('section')">Section</button>
+      <button class="wc-type-btn wc-gate" onclick="applyTypeToSelected('gate')">Gate</button>
+      <button class="wc-type-btn wc-post" onclick="applyTypeToSelected('post')">Post</button>
+      <button class="wc-type-btn wc-misc" onclick="applyTypeToSelected('misc')">Misc</button>
+    </div>
+    <div class="wc-table-wrap">
+      <table class="wc-table">
+        <thead><tr><th></th><th>Item Code</th><th>Description</th><th>Prod</th><th>Type</th></tr></thead>
+        <tbody id="wc-tbody"></tbody>
+      </table>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeWoodCodesModal()">Close</button>
+    </div>
+  </div>
+</div>
  
 <!-- Add user modal -->
 <div class="modal-overlay" id="add-user-modal">
@@ -685,6 +743,10 @@ thead th{position:sticky;top:0;z-index:2;background:var(--surface);border-bottom
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
         Date changes<span class="nb amber" id="b-dc">0</span>
       </div>
+      <div class="nav-item" id="nav-inbox" onclick="sv('inbox')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11L2 12v6a2 2 0 002 2h16a2 2 0 002-2v-6l-3.45-6.89A2 2 0 0016.76 4H7.24a2 2 0 00-1.79 1.11z"/></svg>
+        Inbox<span class="nb red" id="b-inbox">0</span>
+      </div>
       <div class="nav-item" id="nav-upload" onclick="sv('upload')" style="display:none">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
         Upload CSV
@@ -705,6 +767,18 @@ thead th{position:sticky;top:0;z-index:2;background:var(--surface);border-bottom
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
         Holidays
       </div>
+      <div class="nav-item" id="nav-wood-codes" onclick="openWoodCodesModal()" style="display:none">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>
+        Wood codes
+      </div>
+      <div class="nav-item" id="nav-changedates" onclick="sv('changedates')" style="display:none">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M8 15l2 2 4-4"/></svg>
+        Change Dates
+      </div>
+      <a href="cus-traveler-match.html" target="_blank" class="nav-item" id="nav-cus-traveler" style="display:none;text-decoration:none">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+        CUS Travelers
+      </a>
       <div class="nav-item" id="nav-log" onclick="sv('log')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
         Activity log
@@ -899,7 +973,46 @@ thead th{position:sticky;top:0;z-index:2;background:var(--surface);border-bottom
           <div class="empty"><div class="spinner"></div></div>
         </div>
       </div>
- 
+
+      <!-- Inbox (all roles, department-scoped) -->
+      <div id="view-inbox" style="display:none;flex-direction:row;flex:1;overflow:hidden">
+        <div style="width:320px;min-width:260px;border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;flex-shrink:0">
+          <div style="padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;flex-shrink:0">
+            <span style="font-size:15px;font-weight:600;color:var(--text)">Inbox</span>
+            <span style="margin-left:auto;font-size:13px;font-family:var(--mono);color:var(--text3)" id="inbox-count"></span>
+          </div>
+          <div style="padding:10px 16px;border-bottom:1px solid var(--border);flex-shrink:0">
+            <input type="text" class="search" id="inbox-search" placeholder="Search SO, traveler #, or &quot;hot&quot;" oninput="renderInboxList()" style="width:100%;box-sizing:border-box;font-size:12px;padding:7px 10px">
+          </div>
+          <div style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch" id="inbox-list">
+            <div class="empty"><div class="spinner"></div></div>
+          </div>
+        </div>
+        <div style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:24px" id="inbox-detail"></div>
+      </div>
+
+      <!-- Change Dates (Production + zgta26 only) -->
+      <div id="view-changedates" style="display:none;flex-direction:column;flex:1;overflow:hidden">
+        <div style="padding:14px 20px;border-bottom:1px solid var(--border);flex-shrink:0">
+          <div style="font-size:15px;font-weight:600;color:var(--text);margin-bottom:8px">Change Dates</div>
+          <input type="text" class="search" id="cd-search" placeholder="Search SO or customer..." oninput="renderChangeDatesSearch()" style="width:280px">
+        </div>
+        <div style="display:flex;flex:1;overflow:hidden">
+          <div style="flex:1;overflow-y:auto;padding:0 20px" id="cd-search-results">
+            <div class="empty"><div class="empty-title">Search for an order</div><div class="empty-sub">By SO number or customer name</div></div>
+          </div>
+          <div style="width:340px;flex-shrink:0;border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden">
+            <div style="padding:14px 16px;border-bottom:1px solid var(--border);font-size:13px;font-weight:600;color:var(--text);flex-shrink:0">
+              Pending changes <span id="cd-pending-count" style="font-family:var(--mono);color:var(--text3);font-weight:400"></span>
+            </div>
+            <div style="flex:1;overflow-y:auto;padding:0 16px" id="cd-pending-list"></div>
+            <div style="padding:14px 16px;border-top:1px solid var(--border);flex-shrink:0">
+              <button class="btn primary" id="cd-send-btn" onclick="sendDateChanges()" style="width:100%" disabled>Send date changes</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
     </div>
   </div>
 </div>
@@ -923,6 +1036,8 @@ let sessExpiresAt = 0;
 let currentUser = null;
 let currentProfile = null; // {full_name, role, username}
 let orders = [], photos = {}, dateChanges = [], approvals = {}, archivedOrders = [], soComments = {}, holidayList = [], holidayDates = new Set();
+let departmentBatches = [], readBatchIds = new Set();
+let pendingDateChanges = []; // staged bulk date changes: {so, customer, oldRaw, newRaw}
 let expanded = new Set(), allExp = false, activeLine = '', activeView = 'tomorrow';
 let collapsedTravelers = new Set();
 let missingFromCSV = [];
@@ -1088,6 +1203,9 @@ function showApp(){
   document.getElementById('nav-users').style.display   = isMgr ? 'flex' : 'none';
   document.getElementById('nav-archive').style.display = isMgr ? 'flex' : 'none';
   document.getElementById('nav-holidays').style.display = uname === 'zgta26' ? 'flex' : 'none';
+  document.getElementById('nav-wood-codes').style.display = uname === 'zgta26' ? 'flex' : 'none';
+  document.getElementById('nav-cus-traveler').style.display = (isProd || uname === 'zgta26') ? 'flex' : 'none';
+  document.getElementById('nav-changedates').style.display = (isProd || uname === 'zgta26') ? 'flex' : 'none';
   // Body classes drive CSS permissions
   document.body.classList.toggle('manager',    isMgr);
   document.body.classList.toggle('viewer',     isViewer || isProd); // production = no photo upload
@@ -1189,6 +1307,31 @@ async function loadCustomers(){
     rows.forEach(c=>{ if(c.name) customerNameMap.set(c.name.trim().toUpperCase(), c.customer_no); });
   } catch(e){}
 }
+let woodCodes = [];
+let woodCodesMap = {}; // item_code (uppercase, trimmed) -> 'section'|'gate'|'post', Gabriel's manual classification
+let selectedWoodCodes = new Set();
+let woodCodesFilter = 'all';
+let woodCodesSearch = '';
+let woodCodesProdFilter = '';
+async function loadWoodItemTypes(){
+  try{
+    const rows = await sbGet('wood_item_types','select=item_code,description,prod,type&order=prod.asc,item_code.asc');
+    woodCodes = rows;
+    woodCodesMap = {};
+    rows.forEach(r=>{ if(r.type) woodCodesMap[r.item_code.trim().toUpperCase()] = r.type; });
+  } catch(e){}
+}
+async function loadDepartmentBatches(){
+  try{ departmentBatches = await sbGet('department_batches','select=*&order=created_at.desc'); }
+  catch(e){}
+}
+async function loadBatchReads(){
+  if(!currentUser?.id) return;
+  try{
+    const rows = await sbGet('batch_reads', `select=batch_id&user_id=eq.${currentUser.id}`);
+    readBatchIds = new Set(rows.map(r=>r.batch_id));
+  } catch(e){}
+}
 async function sbUpsertOrders(rows){
   const r = await fetch(`${SUPA_URL}/rest/v1/orders?on_conflict=traveler`, {
     method:'POST', headers:{...H(),'Prefer':'resolution=merge-duplicates'},
@@ -1219,7 +1362,7 @@ async function sbUpdate(table, id, data){
 // ── Load data ─────────────────────────────────────────────────────────────────
 async function loadAll(){
   showLoading('Loading orders…');
-  try{ await Promise.all([loadOrders(), loadPhotos(), loadApprovals(), loadComments(), loadLastCsvUpload(), loadHolidays(), loadCustomers()]); updateAll(); sv('tomorrow'); openDeepLinkedSO(); }
+  try{ await Promise.all([loadOrders(), loadPhotos(), loadApprovals(), loadComments(), loadLastCsvUpload(), loadHolidays(), loadCustomers(), loadWoodItemTypes(), loadDepartmentBatches(), loadBatchReads()]); updateAll(); sv('tomorrow'); openDeepLinkedSO(); }
   catch(e){ toast('Error',e.message,'red'); }
   hideLoading();
 }
@@ -1454,7 +1597,7 @@ async function refreshData(){
   try{
     const ok = await refreshAuthToken();
     if(!ok){ await forceReauth('Session expired — please sign in again.'); btn.disabled=false; return; }
-    await Promise.all([loadOrders(),loadPhotos(),loadApprovals(),loadComments(),loadHolidays(),loadCustomers()]); updateAll(); render(); toast('Refreshed','Data is up to date.','green'); startAutoRefresh();
+    await Promise.all([loadOrders(),loadPhotos(),loadApprovals(),loadComments(),loadHolidays(),loadCustomers(),loadWoodItemTypes(),loadDepartmentBatches(),loadBatchReads()]); updateAll(); render(); toast('Refreshed','Data is up to date.','green'); startAutoRefresh();
   }
   catch(e){ toast('Error',e.message,'red'); }
   btn.disabled=false;
@@ -1856,6 +1999,8 @@ function updateAll(){
   document.getElementById('b-dc').textContent=dateChanges.length+missingFromCSV.length;
   const archBadge=document.getElementById('b-archive');
   if(archBadge) archBadge.textContent=archivedOrders.length;
+  const inboxBadge=document.getElementById('b-inbox');
+  if(inboxBadge) inboxBadge.textContent=departmentBatches.filter(b=>!readBatchIds.has(b.id)).length;
  
   // DC banner
   const banner=document.getElementById('dc-banner');
@@ -2489,6 +2634,308 @@ function renderLog(){
   body.innerHTML=html;
 }
  
+// ── Inbox ─────────────────────────────────────────────────────────────────────
+// Renders one Outlook-style attachment chip: colored type badge + name + subtitle.
+function inboxAttachmentChip(url, name, opts){
+  opts = opts || {};
+  const ext = (name.includes('.') ? name.split('.').pop() : '').toUpperCase();
+  const iconBg = opts.accent ? 'var(--accent)' : (
+    ext==='PDF' ? '#e5484d' :
+    ['PNG','JPG','JPEG','GIF','WEBP'].includes(ext) ? '#3477eb' :
+    ['DWG','DXF'].includes(ext) ? '#f0a020' : '#6e6e78'
+  );
+  const iconColor = opts.accent ? '#0f0f11' : '#fff';
+  const iconLabel = opts.iconLabel || ext || 'DOC';
+  const subtitle = opts.subtitle || (ext ? ext+' File' : 'File');
+  return `<a href="${url}" target="_blank" onclick="event.stopPropagation()" style="display:inline-flex;align-items:center;gap:8px;background:var(--surface3);border:1px solid ${opts.accent?'var(--accent)':'var(--border2)'};border-radius:8px;padding:6px 10px;text-decoration:none;max-width:230px;margin:0 8px 8px 0">
+    <span style="width:28px;height:28px;border-radius:4px;background:${iconBg};display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;color:${iconColor};flex-shrink:0">${iconLabel}</span>
+    <span style="display:flex;flex-direction:column;overflow:hidden">
+      <span style="font-size:12px;color:var(--text);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(name)}</span>
+      <span style="font-size:10px;color:var(--text3)">${escapeHtml(subtitle)}</span>
+    </span>
+  </a>`;
+}
+
+function formatTravelerRanges(travelers){
+  const nums = (travelers||[]).map(t=>parseInt(t,10)).filter(Number.isFinite).sort((a,b)=>a-b);
+  if(!nums.length) return '';
+  const ranges = [];
+  let start = nums[0], prev = nums[0];
+  for(let i=1;i<nums.length;i++){
+    if(nums[i] === prev+1){ prev = nums[i]; continue; }
+    ranges.push(start===prev ? `${start}` : `${start}-${prev}`);
+    start = prev = nums[i];
+  }
+  ranges.push(start===prev ? `${start}` : `${start}-${prev}`);
+  return ranges.map(r=>'WO '+r).join(', ');
+}
+
+let selectedBatchId = null;
+
+function renderInbox(){
+  renderInboxList();
+  if(selectedBatchId == null && departmentBatches.length){
+    selectedBatchId = departmentBatches[0].id; // most recent, since query orders by created_at.desc
+  }
+  if(selectedBatchId != null && departmentBatches.some(b=>b.id===selectedBatchId)){
+    selectInboxEntry(selectedBatchId);
+  } else {
+    document.getElementById('inbox-detail').innerHTML = '<div class="empty"><div class="empty-icon">✉</div><div class="empty-title">No batches yet</div><div class="empty-sub">Uploaded CUS traveler batches for your departments will appear here</div></div>';
+  }
+}
+
+function renderInboxList(){
+  const list=document.getElementById('inbox-list');
+  const cnt=document.getElementById('inbox-count');
+  if(!list) return;
+  if(cnt) cnt.textContent = `${departmentBatches.length} batch${departmentBatches.length!==1?'es':''}`;
+
+  if(!departmentBatches.length){
+    list.innerHTML='<div class="empty"><div class="empty-icon">✉</div><div class="empty-title">No batches</div></div>';
+    return;
+  }
+
+  const q = (document.getElementById('inbox-search')?.value||'').trim().toLowerCase();
+  const filtered = !q ? departmentBatches : departmentBatches.filter(b => {
+    const entries = b.entries || [];
+    if(q==='hot') return entries.some(e=>e.hot);
+    return entries.some(e =>
+      (e.so||'').toLowerCase().includes(q) ||
+      (e.customer||'').toLowerCase().includes(q) ||
+      (e.travelers||[]).some(t=>String(t).toLowerCase().includes(q))
+    );
+  });
+
+  if(!filtered.length){
+    list.innerHTML='<div class="empty"><div class="empty-title">No matches</div></div>';
+    return;
+  }
+
+  const byDate={};
+  for(const b of filtered){
+    const day=b.created_at.slice(0,10);
+    if(!byDate[day]) byDate[day]=[];
+    byDate[day].push(b);
+  }
+
+  let html='';
+  for(const day of Object.keys(byDate)){
+    const d=new Date(day+'T12:00:00');
+    const label=d.toLocaleDateString([],{weekday:'long',month:'short',day:'numeric'});
+    html+=`<div style="padding:10px 16px 4px;font-size:12px;font-family:var(--mono);letter-spacing:0.08em;color:var(--text3);text-transform:uppercase;border-bottom:1px solid var(--border);background:var(--surface)">${label}</div>`;
+    for(const b of byDate[day]){
+      const isUnread = !readBatchIds.has(b.id);
+      const isSelected = b.id === selectedBatchId;
+      const time=new Date(b.created_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+      const isDC = b.type === 'date_change';
+      const soSummary = isDC
+        ? (b.entries||[]).map(e=>`SO ${e.so} → ${e.new_ship_date}`).join(', ')
+        : (b.entries||[]).map(e=>`SO ${e.so}`).join(', ');
+      const rowBg = isSelected ? 'var(--surface3)' : (isUnread ? 'var(--surface2)' : 'transparent');
+      html+=`<div onclick="selectInboxEntry(${b.id})" style="padding:10px 16px;border-bottom:1px solid var(--border);border-left:3px solid ${isSelected?'var(--accent)':'transparent'};cursor:pointer;background:${rowBg}">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
+          ${isUnread?'<span style="width:6px;height:6px;border-radius:50%;background:var(--accent);flex-shrink:0"></span>':'<span style="width:6px;flex-shrink:0"></span>'}
+          ${makeDeptPill(b.department)}
+          <span style="font-size:14px;font-weight:${isUnread?'800':'600'};color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${DEPT_META[b.department]?DEPT_META[b.department].label:b.department} ${isDC?'date change':'batch'}</span>
+          <span style="margin-left:auto;font-size:12px;font-family:var(--mono);color:var(--text3);flex-shrink:0">${time}</span>
+        </div>
+        <div style="font-size:13px;font-family:var(--mono);color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-left:14px">${escapeHtml(soSummary)}</div>
+      </div>`;
+    }
+  }
+  list.innerHTML=html;
+}
+
+function renderInboxDetail(batchId){
+  const wrap=document.getElementById('inbox-detail');
+  const b = departmentBatches.find(x=>x.id===batchId);
+  if(!b){ wrap.innerHTML=''; return; }
+  const entries = b.entries || [];
+  if(b.type === 'date_change'){
+    const e = entries[0] || {};
+    wrap.innerHTML = `
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
+        ${makeDeptPill(b.department)}
+        <span style="font-size:18px;font-weight:800;color:var(--text)">${DEPT_META[b.department]?DEPT_META[b.department].label:b.department} date change</span>
+      </div>
+      <div style="font-size:12px;color:var(--text3);font-family:var(--mono);margin-bottom:20px">${escapeHtml(b.uploaded_by||'')} · ${new Date(b.created_at).toLocaleString()}</div>
+      <div style="font-size:16px;font-weight:800;color:var(--text);margin-bottom:10px">SO ${escapeHtml(e.so||'')} — ${escapeHtml(e.customer||'')}</div>
+      <div style="font-family:var(--mono);font-size:15px;color:var(--text2)">From ${escapeHtml(e.old_ship_date||'')} to ${escapeHtml(e.new_ship_date||'')}</div>
+    `;
+    return;
+  }
+  const soRows = entries.map(e=>{
+    const tags = [];
+    if(e.see_pic) tags.push('<span style="color:var(--blue);font-weight:800">** See Pic **</span>');
+    if(e.hot) tags.push('<span style="color:var(--red);font-weight:800">** HOT **</span>');
+    return `<div style="display:flex;gap:40px;align-items:baseline;font-family:var(--mono);font-size:15px;color:var(--text2);padding:6px 0;border-bottom:1px solid var(--border)">
+      <span style="color:var(--text);font-weight:800">SO ${escapeHtml(e.so)}</span>
+      <span style="font-weight:800">${escapeHtml(formatTravelerRanges(e.travelers))}</span>
+      ${e.ship_date?`<span style="color:var(--text3);font-weight:800">Ship ${escapeHtml(e.ship_date)}</span>`:''}
+      ${tags.join(' ')}
+    </div>`;
+  }).join('');
+  const attachChips = [
+    b.pdf_url ? inboxAttachmentChip(b.pdf_url, 'Stamped Order PDF', {accent:true, subtitle:'PDF Document', iconLabel:'PDF'}) : '',
+    ...(b.extra_files||[]).map(f => inboxAttachmentChip(f.url, f.name))
+  ].filter(Boolean).join('');
+  wrap.innerHTML = `
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
+      ${makeDeptPill(b.department)}
+      <span style="font-size:18px;font-weight:800;color:var(--text)">${DEPT_META[b.department]?DEPT_META[b.department].label:b.department} batch</span>
+    </div>
+    <div style="font-size:12px;color:var(--text3);font-family:var(--mono);margin-bottom:20px">${escapeHtml(b.uploaded_by||'')} · ${new Date(b.created_at).toLocaleString()}</div>
+    <div style="display:flex;flex-wrap:wrap;margin-bottom:20px">${attachChips}</div>
+    <div>${soRows}</div>
+  `;
+}
+
+function selectInboxEntry(batchId){
+  selectedBatchId = batchId;
+  markBatchRead(batchId);
+  renderInboxList();
+  renderInboxDetail(batchId);
+}
+
+async function markBatchRead(batchId){
+  if(readBatchIds.has(batchId)) return;
+  readBatchIds.add(batchId);
+  const inboxBadge=document.getElementById('b-inbox');
+  if(inboxBadge) inboxBadge.textContent=departmentBatches.filter(b=>!readBatchIds.has(b.id)).length;
+  try{
+    await fetch(`${SUPA_URL}/rest/v1/batch_reads`,{
+      method:'POST', headers:{...H(),'Prefer':'resolution=ignore-duplicates,return=minimal'},
+      body: JSON.stringify({batch_id:batchId, user_id:currentUser.id})
+    });
+  }catch(e){}
+}
+
+// ── Change Dates (bulk ship-date changes, Production + zgta26 only) ────────────
+function openChangeDatesView(){
+  const isProd = currentProfile?.role === 'production';
+  const uname = currentProfile?.username;
+  if(!(isProd || uname === 'zgta26')) return;
+  renderChangeDatesSearch();
+  renderPendingDateChanges();
+}
+
+function renderChangeDatesSearch(){
+  const wrap = document.getElementById('cd-search-results');
+  if(!wrap) return;
+  const q = (document.getElementById('cd-search')?.value||'').trim().toLowerCase();
+  if(!q){
+    wrap.innerHTML = '<div class="empty"><div class="empty-title">Search for an order</div><div class="empty-sub">By SO number or customer name</div></div>';
+    return;
+  }
+  const groups = groupBySO(orders).filter(g=>{
+    const cust = (g.travelers[0]?.customer||'').toLowerCase();
+    const custNo = (customerNameMap.get(cust.toUpperCase())||'').toLowerCase();
+    return g.so.toLowerCase().includes(q) || cust.includes(q) || custNo.includes(q);
+  }).slice(0, 50);
+  if(!groups.length){ wrap.innerHTML = '<div class="empty"><div class="empty-title">No matches</div></div>'; return; }
+  wrap.innerHTML = groups.map(g=>{
+    const t0 = g.travelers[0];
+    const depts = [...new Set(g.travelers.map(t=>t.department).filter(Boolean))];
+    const staged = pendingDateChanges.find(p=>p.so===g.so);
+    return `<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);flex-wrap:wrap">
+      <span class="mono" style="font-weight:700;color:var(--text);min-width:80px">${escapeHtml(g.so)}</span>
+      <span style="color:var(--text2);font-size:13px;flex:1;min-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(t0.customer||'')}</span>
+      ${depts.map(d=>makeDeptPill(d)).join('')}
+      <span class="mono" style="font-size:12px;color:var(--text3)">Current: ${t0.soShip||'—'}</span>
+      <input type="date" id="cd-date-${g.so}" value="${staged?staged.newRaw:(t0.soShipRaw||'')}"
+        style="background:var(--surface2);border:1px solid var(--border2);border-radius:6px;padding:6px 8px;color:var(--text);font-family:var(--mono);font-size:12px">
+      <button class="btn" onclick="addPendingDateChange('${g.so}')">${staged?'Update':'Add'}</button>
+    </div>`;
+  }).join('');
+}
+
+function addPendingDateChange(so){
+  const input = document.getElementById('cd-date-'+so);
+  if(!input || !input.value){ toast('No date selected','Please pick a date first.','amber'); return; }
+  const newRaw = input.value;
+  const grp = groupBySO(orders).find(g=>g.so===so);
+  if(!grp) return;
+  const oldRaw = grp.travelers[0].soShipRaw;
+  if(newRaw === oldRaw){ toast('No change','That is already the current ship date.','amber'); return; }
+  const customer = grp.travelers[0].customer;
+  const existing = pendingDateChanges.find(p=>p.so===so);
+  if(existing){ existing.newRaw = newRaw; } else { pendingDateChanges.push({so, customer, oldRaw, newRaw}); }
+  renderPendingDateChanges();
+  renderChangeDatesSearch();
+}
+
+function removePendingDateChange(so){
+  pendingDateChanges = pendingDateChanges.filter(p=>p.so!==so);
+  renderPendingDateChanges();
+  renderChangeDatesSearch();
+}
+
+function renderPendingDateChanges(){
+  const wrap = document.getElementById('cd-pending-list');
+  const cnt = document.getElementById('cd-pending-count');
+  const btn = document.getElementById('cd-send-btn');
+  if(cnt) cnt.textContent = pendingDateChanges.length ? `(${pendingDateChanges.length})` : '';
+  if(btn) btn.disabled = !pendingDateChanges.length;
+  if(!wrap) return;
+  if(!pendingDateChanges.length){
+    wrap.innerHTML = '<div class="empty"><div class="empty-sub">Search and add orders to stage date changes</div></div>';
+    return;
+  }
+  wrap.innerHTML = pendingDateChanges.map(p=>`
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px">
+      <div>
+        <div class="mono" style="font-weight:700;color:var(--text)">SO ${escapeHtml(p.so)}</div>
+        <div style="color:var(--text3);font-size:11px">${fmtDate(p.oldRaw)} → ${fmtDate(p.newRaw)}</div>
+      </div>
+      <button class="btn" onclick="removePendingDateChange('${p.so}')" style="padding:4px 8px;font-size:11px">✕</button>
+    </div>`).join('');
+}
+
+async function sendDateChanges(){
+  if(!pendingDateChanges.length) return;
+  const btn = document.getElementById('cd-send-btn');
+  btn.disabled = true; btn.textContent = 'Sending…';
+  const batch = pendingDateChanges.slice();
+  const actor = currentProfile?.full_name || 'unknown';
+  try{
+    // 1. Update ship dates + activity log (same mechanics as the single-order picker)
+    for(const p of batch){
+      const r = await fetch(`${SUPA_URL}/rest/v1/orders?so=eq.${p.so}&archived=eq.false`, {
+        method:'PATCH', headers:{...H(),'Prefer':'return=minimal'}, body: JSON.stringify({so_ship: p.newRaw})
+      });
+      if(!r.ok) throw new Error(await r.text());
+      const oldFmt = fmtDate(p.oldRaw), newFmt = fmtDate(p.newRaw);
+      await logActivity('date_change', p.so, `${actor} changed order ${p.so} from ${oldFmt} to ${newFmt}`);
+      orders.forEach(o=>{ if(o.so===p.so){ o.soShipRaw=p.newRaw; o.soShip=newFmt; } });
+    }
+    // 2. One Inbox notification per department that has travelers on that SO
+    const rowsToInsert = [];
+    for(const p of batch){
+      const grp = groupBySO(orders).find(g=>g.so===p.so);
+      const depts = [...new Set((grp?.travelers||[]).map(t=>t.department).filter(Boolean))];
+      for(const d of depts){
+        rowsToInsert.push({
+          department: d, type: 'date_change', uploaded_by: actor,
+          entries: [{so: p.so, customer: p.customer, old_ship_date: fmtDate(p.oldRaw), new_ship_date: fmtDate(p.newRaw)}]
+        });
+      }
+    }
+    if(rowsToInsert.length){
+      const inserted = await sbInsert('department_batches', rowsToInsert);
+      departmentBatches = [...inserted, ...departmentBatches];
+    }
+    pendingDateChanges = [];
+    renderPendingDateChanges();
+    renderChangeDatesSearch();
+    updateAll(); render();
+    toast('Date changes sent', `${batch.length} order${batch.length!==1?'s':''} updated · ${rowsToInsert.length} notification${rowsToInsert.length!==1?'s':''} sent`, 'green');
+  } catch(e){
+    toast('Error', e.message, 'red');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Send date changes';
+  }
+}
+
 // ── Photo upload ──────────────────────────────────────────────────────────────
 // ── Photo compression ─────────────────────────────────────────────────────────
 function compressPhoto(file, maxSizeKB=800, maxWidth=1920, maxHeight=1920){
@@ -2819,6 +3266,28 @@ function doGeneratePrintReport(){
   generatePrintReport(start, end, new Set(printReportDepts));
   closePrintReportModal();
 }
+// Classifies a Wood traveler as 'gate','section', or 'post' for the Print Report daily breakdown.
+// ProdLine lookup first (Gabriel's explicit rules); description keywords as fallback — far more
+// reliable in practice than guessing from the item code, since every real gate/post description
+// says so directly ("GATE", or end-post/line-post language: "END"/"LINE"/"POST").
+const WOOD_GATE_ONLY_LINES = new Set(['505','515','516']);
+const WOOD_SECTION_ONLY_LINES = new Set(['510','520']);
+const WOOD_POST_LINES = new Set(['530','535','565']);
+const WOOD_GATE_CODE_PATTERN = /[A-Z]G-?([0-9]|CUS)/i;
+function classifyWoodTraveler(line, itemCode, desc){
+  const codeKey = String(itemCode||'').trim().toUpperCase();
+  if(woodCodesMap[codeKey]) return woodCodesMap[codeKey]; // Gabriel's manual classification always wins
+  const l = String(line||'').trim();
+  if(WOOD_GATE_ONLY_LINES.has(l)) return 'gate';
+  if(WOOD_SECTION_ONLY_LINES.has(l)) return 'section';
+  if(WOOD_POST_LINES.has(l)) return 'post';
+  // 525 (mixed) or unknown/no line info: description text + item-code pattern as signals;
+  // if neither matches, we're not confident — bucket as 'misc' rather than guessing 'section'
+  const d = String(desc||'').toUpperCase();
+  if(/\bGATE\b/.test(d) || WOOD_GATE_CODE_PATTERN.test(itemCode||'')) return 'gate';
+  if(/\bPOST\b|\bEND\b|\bLINE\b/.test(d)) return 'post';
+  return 'misc';
+}
 function generatePrintReport(startDate, endDate, deptSet){
   if(currentProfile?.role!=='manager'){ toast('Access denied','Only managers can print reports.','red'); return; }
 
@@ -2841,7 +3310,7 @@ function generatePrintReport(startDate, endDate, deptSet){
     const viaCls    = t0.via==='OUR TRUCK' ? 'truck' : t0.via==='INSTALL/REPAIR' ? 'install'
       : loc.toLowerCase().includes('amityville') ? 'amendolas' : 'interstate';
     const approvedCount = travelers.filter(o => approvals[o.traveler]).length;
-    return { so, travelers, soPhotos, customer: t0.customer, soShip: t0.soShip, viaEmoji, viaLabel, viaCls, approvedCount };
+    return { so, travelers, soPhotos, customer: t0.customer, soShip: t0.soShip, soShipRaw: t0.soShipRaw, viaEmoji, viaLabel, viaCls, approvedCount };
   });
 
   const dateLabel = startDate===endDate ? fmtDate(startDate) : `${fmtDate(startDate)} – ${fmtDate(endDate)}`;
@@ -2850,6 +3319,15 @@ function generatePrintReport(startDate, endDate, deptSet){
   const totalTravelers = soData.reduce((a,s)=>a+s.travelers.length,0);
   const totalPhotos    = soData.filter(s=>s.soPhotos.length>0).length;
   const totalNone      = soData.filter(s=>s.soPhotos.length===0).length;
+
+  const woodByDay = {};
+  if(deptSet.has('wood')){
+    filtered.filter(o=>o.department==='wood').forEach(o=>{
+      const day = o.soShipRaw;
+      if(!woodByDay[day]) woodByDay[day] = {section:0, gate:0, post:0, misc:0};
+      woodByDay[day][classifyWoodTraveler(o.line, o.item, o.desc)] += Number(o.qty)||0;
+    });
+  }
 
   const html = `<!DOCTYPE html>
 <html lang="en">
@@ -2867,11 +3345,18 @@ function generatePrintReport(startDate, endDate, deptSet){
   --accent:#c8f060;--red:#ff5f5f;--amber:#ffb347;--green:#60d08a;
   --mono:'JetBrains Mono',monospace;--sans:'Syne',sans-serif;
 }
+.wt-gate{background:rgba(255,120,180,0.18)}
+.wt-section{background:rgba(96,208,138,0.18)}
+.wt-post{background:rgba(255,179,71,0.18)}
 html,body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:13px;line-height:1.3}
 .header{background:var(--surface);border-bottom:1px solid var(--border);padding:8px 16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .logo{font-size:16px;font-weight:700;letter-spacing:-0.02em}.logo span{color:var(--accent)}
 .report-meta{font-size:10px;font-family:var(--mono);color:var(--text3);margin-left:auto;text-align:right}
 .summary{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--border);border-bottom:1px solid var(--border)}
+.wood-daily{border-bottom:1px solid var(--border2)}
+.wood-day-label{font-size:9px;font-family:var(--mono);color:var(--text3);letter-spacing:0.06em;text-transform:uppercase;padding:4px 10px 0}
+.wood-summary{grid-template-columns:repeat(4,1fr);border-bottom:none}
+.wood-summary .sum-item{padding:3px 10px 6px}
 .sum-item{background:var(--surface);padding:4px 10px}
 .sum-label{font-size:9px;font-family:var(--mono);color:var(--text3);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:2px}
 .sum-val{font-size:13px;font-weight:700;letter-spacing:-0.02em}
@@ -2915,6 +3400,8 @@ tr:last-child td{border-bottom:none}
   table{font-size:10px}th,td{padding:3px 6px}
 }
 @media print{
+  *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important}
+  html{background:#fff!important}
   body{background:#fff!important;color:#111!important}
   .header{background:#fff!important;border-bottom:1px solid #ccc!important}
   .summary{background:#fff!important;border-bottom:1px solid #ccc!important}
@@ -2928,6 +3415,8 @@ tr:last-child td{border-bottom:none}
   th{border-bottom:1px solid #ccc!important}
   td{border-bottom:1px solid #eee!important}
   .tag,.via-pill,.dept-pill{border:1px solid #999!important}
+  .via-truck,.via-interstate,.via-amendolas,.via-install{background:transparent!important}
+  .via-install{color:#555!important}
   .tg{background:#e6f7ec!important;color:#1a7d42!important}
   .ta{background:#fff3e0!important;color:#b06a00!important}
   .td{background:#f2f2f2!important;color:#555!important}
@@ -2948,7 +3437,7 @@ tr:last-child td{border-bottom:none}
   <div class="sum-item"><div class="sum-label">Travelers</div><div class="sum-val">${totalTravelers}</div></div>
 </div>
 <div class="container">
-${soData.map(s => {
+${(() => { let lastWoodDayShown = null; return soData.map(s => {
   const hasPic = s.soPhotos.length > 0;
   const picTag = hasPic
     ? `<span class="tag tg">✓ ${s.soPhotos.length} photo${s.soPhotos.length>1?'s':''}</span>`
@@ -2956,18 +3445,33 @@ ${soData.map(s => {
   const approvalTag = s.approvedCount===s.travelers.length && s.travelers.length>0
     ? `<span class="tag tg">✓ Approved</span>` : `<span class="tag td">${s.approvedCount}/${s.travelers.length} approved</span>`;
   const deptPills = deptPillsForTravelers(s.travelers);
+  const dayHeaderHtml = (woodByDay[s.soShipRaw] && s.soShipRaw !== lastWoodDayShown) ? (() => {
+    lastWoodDayShown = s.soShipRaw;
+    const c = woodByDay[s.soShipRaw];
+    return `<div class="wood-daily">
+    <div class="wood-day-label">${fmtDate(s.soShipRaw)} · Wood</div>
+    <div class="summary wood-summary">
+      <div class="sum-item"><div class="sum-label">Sections</div><div class="sum-val green">${c.section}</div></div>
+      <div class="sum-item"><div class="sum-label">Gates</div><div class="sum-val">${c.gate}</div></div>
+      <div class="sum-item"><div class="sum-label">Posts</div><div class="sum-val amber">${c.post}</div></div>
+      <div class="sum-item"><div class="sum-label">Misc</div><div class="sum-val">${c.misc}</div></div>
+    </div>
+  </div>`;
+  })() : '';
   const travelerRows = s.travelers.map(o=>{
     const isApp=!!approvals[o.traveler];
     const isCus=o.item.includes('-CUS')||o.item.endsWith('CUS');
+    const woodType = o.department==='wood' ? classifyWoodTraveler(o.line, o.item, o.desc) : null;
+    const woodCls = woodType && woodType!=='misc' ? `wt-${woodType}` : '';
     return `<tr>
       <td style="font-family:var(--mono);font-weight:700">${o.traveler}</td>
-      <td>${o.desc}</td>
-      <td style="font-family:var(--mono);font-weight:600;color:${isCus?'var(--amber)':'var(--text)'}">${o.item}</td>
-      <td style="text-align:right;font-family:var(--mono);font-weight:600">${o.qty%1===0?o.qty:o.qty.toFixed(1)}</td>
+      <td class="${woodCls}">${o.desc}</td>
+      <td class="${woodCls}" style="font-family:var(--mono);font-weight:600;color:${isCus?'var(--amber)':'var(--text)'}">${o.item}</td>
+      <td class="${woodCls}" style="text-align:right;font-family:var(--mono);font-weight:600">${o.qty%1===0?o.qty:o.qty.toFixed(1)}</td>
       <td>${isApp?'<span class="tag tg">✓ Approved</span>':'<span class="tag td">Pending</span>'}</td>
     </tr>`;
   }).join('');
-  return `<details open>
+  return dayHeaderHtml + `<details open>
   <summary>
     <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
     <span class="so-num">${s.so}</span>
@@ -2982,7 +3486,7 @@ ${soData.map(s => {
     <tbody>${travelerRows}</tbody></table>
   </div>
 </details>`;
-}).join('\n')}
+}).join('\n'); })()}
 </div>
 <div class="footer">ProdTrack · ${soData.length} orders · ${dateLabel} · ${deptLabel} · ${generatedAt}</div>
 </body>
@@ -3111,6 +3615,16 @@ function viaColorHex(via, location){
   }
   return '#999999';
 }
+function viaColorWord(via, location){
+  if(via==='OUR TRUCK') return 'GREEN';
+  if(via==='INSTALL/REPAIR') return 'BLACK';
+  if(via==='PICK UP'){
+    const loc=(location||'').toLowerCase();
+    if(loc.includes('amityville')) return 'BLUE';
+    return 'ORANGE';
+  }
+  return '';
+}
 function chunkSkidItems(items){
   const chunks = [];
   for(let i=0;i<items.length;i+=MAX_ITEMS_PER_LABEL_PAGE) chunks.push(items.slice(i,i+MAX_ITEMS_PER_LABEL_PAGE));
@@ -3147,7 +3661,9 @@ function renderPrintLabelPreview(){
       <div class="lbl-divider"></div>
       ${itemsHtml}
       <div class="lbl-bottom-row">
-        <div class="lbl-color-tag" style="background:${viaColorHex(t0.via, t0.location)}"></div>
+        ${labelDept==='gate'
+          ? `<div class="lbl-color-tag lbl-color-tag-text" style="color:${viaColorHex(t0.via, t0.location)}">${viaColorWord(t0.via, t0.location)}</div>`
+          : `<div class="lbl-color-tag" style="background:${viaColorHex(t0.via, t0.location)}"></div>`}
         <div class="lbl-page">${i+1} of ${total}</div>
       </div>
     </div></div>`;
@@ -3235,7 +3751,9 @@ function generateLabelDocument(so, cust, po, skids){
       <div class="lbl-divider"></div>
       ${itemsHtml}
       <div class="lbl-bottom-row">
-        <div class="lbl-color-tag" style="background:${viaColorHex(t0.via, t0.location)}"></div>
+        ${labelDept==='gate'
+          ? `<div class="lbl-color-tag lbl-color-tag-text" style="color:${viaColorHex(t0.via, t0.location)}">${viaColorWord(t0.via, t0.location)}</div>`
+          : `<div class="lbl-color-tag" style="background:${viaColorHex(t0.via, t0.location)}"></div>`}
         <div class="lbl-page">${i+1} of ${total}</div>
       </div>
     </div>`;
@@ -3258,6 +3776,7 @@ body{background:#fff;color:#000}
 .lbl-page{border:2px solid #000;padding:4px 10px;font-size:16px;font-weight:700}
 .lbl-bottom-row{position:absolute;bottom:0.22in;left:0.22in;right:0.22in;display:flex;align-items:stretch;gap:8px;height:32px}
 .lbl-color-tag{flex:1;border:2px solid #000;border-radius:2px}
+.lbl-color-tag-text{display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px;letter-spacing:1px;color:#000;background:transparent}
 .lbl-bottom-row .lbl-page{display:flex;align-items:center;justify-content:center;white-space:nowrap}
 </style></head><body>${pages}</body></html>`;
   const win = window.open('', '_blank');
@@ -3370,6 +3889,168 @@ async function handleCustomerCSVUpload(file){
   }
   document.getElementById('cl-file-input').value = '';
 }
+function parseWoodCodesCSV(txt){
+  const lines = txt.split(/\r?\n/).filter(l=>l.trim());
+  if(!lines.length) return null;
+  let headerIdx=-1, codeIdx=-1, descIdx=-1, prodIdx=-1;
+  for(let i=0;i<Math.min(5,lines.length);i++){
+    const header = parseRow(lines[i]).map(h=>h.trim().toLowerCase().replace(/[^a-z0-9]/g,''));
+    const c = header.findIndex(h=>h.includes('itemcode'));
+    const d = header.findIndex(h=>h==='description');
+    if(c!==-1 && d!==-1){ headerIdx=i; codeIdx=c; descIdx=d; prodIdx=header.findIndex(h=>h==='prod'||h.includes('prodline')); break; }
+  }
+  if(headerIdx===-1) return null;
+  const out=[];
+  for(let i=headerIdx+1;i<lines.length;i++){
+    const r = parseRow(lines[i]);
+    const item_code = (r[codeIdx]||'').trim();
+    const description = (r[descIdx]||'').trim();
+    if(!item_code) continue;
+    const prod = prodIdx>=0 ? (r[prodIdx]||'').trim() : '';
+    out.push({item_code, description, prod});
+  }
+  return out;
+}
+async function handleWoodCodesCSVUpload(file){
+  if(!file) return;
+  const status = document.getElementById('wc-status');
+  status.textContent = 'Reading file…';
+  try{
+    const txt = await file.text();
+    const rows = parseWoodCodesCSV(txt);
+    if(rows===null){ status.textContent = 'Could not find "Item Code" and "Description" columns in this file.'; return; }
+    if(!rows.length){ status.textContent = 'No code rows found in this file.'; return; }
+    status.textContent = `Uploading ${rows.length} codes…`;
+    const BATCH = 500;
+    for(let i=0;i<rows.length;i+=BATCH){
+      const batch = rows.slice(i,i+BATCH);
+      const r = await fetch(`${SUPA_URL}/rest/v1/wood_item_types?on_conflict=item_code`, {
+        method:'POST', headers:{...H(),'Prefer':'resolution=merge-duplicates'},
+        body: JSON.stringify(batch)
+      });
+      if(!r.ok) throw new Error(await r.text());
+    }
+    await loadWoodItemTypes();
+    renderWoodCodesProdOptions();
+    renderWoodCodesList();
+    status.textContent = `Done — ${woodCodes.length} codes loaded.`;
+    toast('Wood codes updated', `${rows.length} codes added/updated.`, 'green');
+  } catch(e){
+    status.textContent = 'Error: '+e.message;
+    toast('Error', e.message, 'red');
+  }
+  document.getElementById('wc-file-input').value = '';
+}
+async function setWoodCodeTypes(codes, type){
+  const dbType = type==='misc' ? null : type;
+  const filter = codes.length===1
+    ? `item_code=eq.${encodeURIComponent(codes[0])}`
+    : `item_code=in.(${codes.map(c=>encodeURIComponent(c)).join(',')})`;
+  const r = await fetch(`${SUPA_URL}/rest/v1/wood_item_types?${filter}`, {
+    method:'PATCH', headers:{...H(),'Prefer':'return=minimal'},
+    body: JSON.stringify({type: dbType})
+  });
+  if(!r.ok) throw new Error(await r.text());
+}
+async function applyTypeToRow(itemCode, type){
+  try{
+    await setWoodCodeTypes([itemCode], type);
+    const dbType = type==='misc' ? null : type;
+    const row = woodCodes.find(r=>r.item_code===itemCode);
+    if(row) row.type = dbType;
+    const key = itemCode.trim().toUpperCase();
+    if(dbType) woodCodesMap[key] = dbType; else delete woodCodesMap[key];
+    renderWoodCodesList();
+  }catch(e){ toast('Error', e.message, 'red'); }
+}
+async function applyTypeToSelected(type){
+  if(!selectedWoodCodes.size) return;
+  const codes = [...selectedWoodCodes];
+  try{
+    await setWoodCodeTypes(codes, type);
+    const dbType = type==='misc' ? null : type;
+    codes.forEach(code=>{
+      const row = woodCodes.find(r=>r.item_code===code);
+      if(row) row.type = dbType;
+      const key = code.trim().toUpperCase();
+      if(dbType) woodCodesMap[key] = dbType; else delete woodCodesMap[key];
+    });
+    selectedWoodCodes.clear();
+    renderWoodCodesList();
+    toast('Updated', `${codes.length} codes set to ${type}.`, 'green');
+  }catch(e){ toast('Error', e.message, 'red'); }
+}
+let wcLastClickIndex = null;
+function toggleWoodCodeSelect(itemCode, checked, evt){
+  const list = filteredWoodCodes();
+  const idx = list.findIndex(r=>r.item_code===itemCode);
+  if(evt && evt.shiftKey && wcLastClickIndex!==null && idx!==-1){
+    const [a,b] = [wcLastClickIndex, idx].sort((x,y)=>x-y);
+    for(let i=a;i<=b;i++){
+      if(checked) selectedWoodCodes.add(list[i].item_code); else selectedWoodCodes.delete(list[i].item_code);
+    }
+  } else {
+    if(checked) selectedWoodCodes.add(itemCode); else selectedWoodCodes.delete(itemCode);
+  }
+  if(idx!==-1) wcLastClickIndex = idx;
+  renderWoodCodesList();
+}
+function toggleWoodCodeSelectAll(checked){
+  const filtered = filteredWoodCodes();
+  if(checked) filtered.forEach(r=>selectedWoodCodes.add(r.item_code));
+  else filtered.forEach(r=>selectedWoodCodes.delete(r.item_code));
+  renderWoodCodesList();
+}
+function filteredWoodCodes(){
+  const q = woodCodesSearch.trim().toUpperCase();
+  return woodCodes.filter(r=>{
+    if(woodCodesFilter==='unclassified' && r.type) return false;
+    if(woodCodesProdFilter && r.prod!==woodCodesProdFilter) return false;
+    if(q && !r.item_code.toUpperCase().includes(q) && !r.description.toUpperCase().includes(q)) return false;
+    return true;
+  });
+}
+function onWoodCodesProdFilterChange(v){ woodCodesProdFilter=v; wcLastClickIndex=null; renderWoodCodesList(); }
+function renderWoodCodesProdOptions(){
+  const sel = document.getElementById('wc-prod-filter');
+  const prods = [...new Set(woodCodes.map(r=>r.prod).filter(Boolean))].sort();
+  sel.innerHTML = '<option value="">All Prod lines</option>' + prods.map(p=>`<option value="${p}">${p}</option>`).join('');
+  sel.value = woodCodesProdFilter;
+}
+function onWoodCodesSearch(v){ woodCodesSearch=v; wcLastClickIndex=null; renderWoodCodesList(); }
+function onWoodCodesFilterChange(v){ woodCodesFilter=v; wcLastClickIndex=null; renderWoodCodesList(); }
+function renderWoodCodesList(){
+  const list = filteredWoodCodes();
+  const body = document.getElementById('wc-tbody');
+  const typeBtn = (row,t,label,cls)=>{
+    const isActive = t==='misc' ? !row.type : row.type===t;
+    return `<button class="wc-type-btn ${cls}${isActive?' active':''}" onclick="applyTypeToRow('${row.item_code}','${t}')">${label}</button>`;
+  };
+  body.innerHTML = list.map(r=>`
+    <tr>
+      <td><input type="checkbox" ${selectedWoodCodes.has(r.item_code)?'checked':''} onclick="toggleWoodCodeSelect('${r.item_code}', this.checked, event)"></td>
+      <td style="font-family:var(--mono)">${escapeHtml(r.item_code)}</td>
+      <td>${escapeHtml(r.description)}</td>
+      <td style="font-family:var(--mono);color:var(--text3)">${escapeHtml(r.prod||'')}</td>
+      <td>${typeBtn(r,'section','Section','wc-section')}${typeBtn(r,'gate','Gate','wc-gate')}${typeBtn(r,'post','Post','wc-post')}${typeBtn(r,'misc','Misc','wc-misc')}</td>
+    </tr>`).join('');
+  document.getElementById('wc-count').textContent = `${list.length} of ${woodCodes.length} codes`;
+  document.getElementById('wc-selected-count').textContent = `${selectedWoodCodes.size} selected`;
+  document.getElementById('wc-selectall').checked = list.length>0 && list.every(r=>selectedWoodCodes.has(r.item_code));
+}
+function openWoodCodesModal(){
+  if(currentProfile?.username !== 'zgta26') return;
+  selectedWoodCodes.clear();
+  wcLastClickIndex = null;
+  woodCodesSearch = '';
+  woodCodesFilter = 'all';
+  woodCodesProdFilter = '';
+  document.getElementById('wc-status').textContent = '';
+  renderWoodCodesProdOptions();
+  renderWoodCodesList();
+  document.getElementById('wood-codes-modal').classList.add('open');
+}
+function closeWoodCodesModal(){ document.getElementById('wood-codes-modal').classList.remove('open'); }
 async function doDeleteHoliday(id){
   try{
     await sbDelete('holidays', id);
@@ -3479,13 +4160,17 @@ function sv(v){
   document.getElementById('view-users').style.display=v==='users'?'flex':'none';
   document.getElementById('view-archive').style.display=v==='archive'?'flex':'none';
   document.getElementById('view-log').style.display=v==='log'?'flex':'none';
-  ['tomorrow','all','pending','done','datechanges','upload','users','archive','log'].forEach(n=>{
+  document.getElementById('view-inbox').style.display=v==='inbox'?'flex':'none';
+  document.getElementById('view-changedates').style.display=v==='changedates'?'flex':'none';
+  ['tomorrow','all','pending','done','datechanges','upload','users','archive','log','inbox','changedates'].forEach(n=>{
     document.getElementById('nav-'+n)?.classList.remove('active');
   });
   document.getElementById('nav-'+v)?.classList.add('active');
   if(v==='users') loadUsers();
   if(v==='archive') openArchiveView();
   if(v==='log') loadLog();
+  if(v==='inbox') renderInbox();
+  if(v==='changedates') openChangeDatesView();
   closeDrawer(); render();
 }
  
@@ -3515,7 +4200,7 @@ function startAutoRefresh(){
         const ok = await refreshAuthToken();
         if(!ok){ await forceReauth('Session expired — please sign in again.'); return; }
       }
-      await Promise.all([loadOrders(),loadPhotos(),loadApprovals(),loadComments(),loadHolidays(),loadCustomers()]);updateAll();render();
+      await Promise.all([loadOrders(),loadPhotos(),loadApprovals(),loadComments(),loadHolidays(),loadCustomers(),loadWoodItemTypes(),loadDepartmentBatches(),loadBatchReads()]);updateAll();render();
     }catch(e){}
   },60000);
 }
@@ -3537,7 +4222,7 @@ function toast(title,body,type){
 // ── Keyboard ──────────────────────────────────────────────────────────────────
 document.addEventListener('keydown',e=>{
   if(e.key==='Escape'){
-    closeLB();closeConfirmPhoto();closeConfirmUser();closeAddUser();closeSOModal();closePrintReportModal();closePrintLabelModal();closeHolidaysModal();closeCustomerListModal();colorCheckRespond(false);
+    closeLB();closeConfirmPhoto();closeConfirmUser();closeAddUser();closeSOModal();closePrintReportModal();closePrintLabelModal();closeHolidaysModal();closeCustomerListModal();closeWoodCodesModal();colorCheckRespond(false);
   }
 });
  
