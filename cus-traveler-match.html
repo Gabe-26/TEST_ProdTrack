@@ -1,0 +1,1082 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CUS Traveler Match — ProdTrack</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700;800&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+<style>
+:root{
+  --bg:#0f0f11;--surface:#17171a;--surface2:#1e1e22;--surface3:#26262b;
+  --border:#2a2a2f;--border2:#34343a;
+  --text:#f0f0f0;--text2:#a8a8b0;--text3:#6e6e78;
+  --accent:#c6ff2f;--red:#ff4757;--amber:#f0a020;--blue:#3477eb;--green:#2ea043;--pink:#ff5fa2;
+  --mono:'JetBrains Mono',monospace;--sans:'Syne',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0;font-family:var(--sans)}
+body{background:var(--bg);color:var(--text);min-height:100vh}
+.wrap{max-width:1600px;margin:0 auto;padding:24px 28px 60px}
+h1{font-size:20px;font-weight:800;letter-spacing:.3px}
+.sub{color:var(--text3);font-size:13px;margin-top:2px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px;margin-top:18px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+input[type=text],input[type=password]{background:var(--surface2);border:1px solid var(--border2);color:var(--text);border-radius:6px;padding:9px 11px;font-family:var(--mono);font-size:14px}
+input[type=file]{color:var(--text2);font-size:13px}
+button{background:var(--accent);color:#0f0f11;border:none;border-radius:6px;padding:9px 16px;font-weight:700;font-size:13px;cursor:pointer;font-family:var(--sans)}
+button:disabled{opacity:.5;cursor:default}
+button.secondary{background:var(--surface3);color:var(--text)}
+.err{color:var(--red);font-size:13px;margin-top:8px}
+.upload-slot{flex:1;min-width:220px;background:var(--surface2);border:1px dashed var(--border2);border-radius:8px;padding:14px}
+.upload-slot label{display:block;font-size:12px;color:var(--text2);font-weight:700;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px}
+.filelist{margin-top:8px;font-size:12px;color:var(--text3)}
+table{width:100%;border-collapse:collapse;margin-top:12px;font-size:13px}
+th,td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--border)}
+th{color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.4px;font-weight:700}
+td{font-family:var(--mono)}
+.badge{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:700}
+.badge-ok{background:rgba(46,160,67,.18);color:var(--green)}
+.badge-warn{background:rgba(240,160,32,.18);color:var(--amber)}
+.section-title{font-size:14px;font-weight:800;margin-bottom:2px}
+.section-count{font-size:12px;color:var(--text3);margin-bottom:6px}
+.tabs{display:flex;gap:4px;margin-top:20px;border-bottom:1px solid var(--border)}
+.tab{padding:9px 16px;font-size:13px;font-weight:700;color:var(--text3);cursor:pointer;border-bottom:2px solid transparent}
+.tab.active{color:var(--accent);border-color:var(--accent)}
+.hidden{display:none!important}
+.empty-note{color:var(--text3);font-size:13px;padding:10px 0}
+.dept-box{border-left:4px solid var(--border2);background:var(--surface2);border-radius:6px;padding:12px 14px;margin-top:12px;transition:box-shadow .12s}
+.dept-box:hover{box-shadow:0 0 0 1px var(--border2) inset}
+.dept-box.active{box-shadow:0 0 0 2px var(--accent) inset}
+.dept-box-title{cursor:pointer}
+.dept-box.collapsed .dept-box-body{display:none}
+.dept-box table{font-size:11px}
+.dept-box th,.dept-box td{padding:5px 8px}
+.so-group{border-top:1px solid var(--border2)}
+.so-group:first-child{border-top:none}
+.so-group-header{display:flex;align-items:center;gap:8px;padding:8px 4px;cursor:pointer;font-size:12px;font-family:var(--mono);font-weight:700}
+.so-group-header:hover{background:var(--surface3)}
+.so-chevron{display:inline-block;width:10px;font-size:10px;color:var(--text3)}
+.so-group-body table{margin-top:0}
+.so-classify-btns{margin-left:auto;display:flex;gap:6px}
+.so-tag-btn{background:var(--surface3);border:1px solid var(--border2);color:var(--text2);font-size:10px;font-weight:700;padding:3px 9px;border-radius:20px;cursor:pointer;font-family:var(--sans)}
+.so-tag-btn.active{background:var(--blue);color:#fff;border-color:var(--blue)}
+.so-tag-btn.hot.active{background:var(--red);color:#fff;border-color:var(--red)}
+.results-columns{display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap}
+.results-columns > .card{margin-top:18px}
+#preview-card{position:sticky;top:16px}
+#preview-pages{max-height:900px;overflow-y:auto}
+.dept-box-title{font-size:13px;font-weight:800;display:flex;align-items:center;gap:8px}
+.dept-swatch{width:12px;height:12px;border-radius:3px;display:inline-block}
+.preview-page{border:1px solid var(--border2);border-radius:6px;margin-top:10px;max-width:100%;display:block}
+.preview-page-label{font-size:11px;color:var(--text3);margin-top:8px}
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:100;align-items:center;justify-content:center;padding:20px}
+.modal-overlay.open{display:flex}
+.modal-card{background:var(--surface);border:1px solid var(--border2);border-radius:10px;max-width:600px;width:100%;max-height:85vh;overflow-y:auto;padding:22px}
+.modal-title{font-size:16px;font-weight:800}
+.modal-sub{font-size:12px;color:var(--text3);margin-top:2px;margin-bottom:16px}
+.ub-dept-row{border:1px solid var(--border2);border-radius:8px;padding:12px;margin-bottom:10px;background:var(--surface2)}
+.ub-dept-row label{display:flex;align-items:center;gap:8px;font-weight:700;font-size:13px;cursor:pointer}
+.ub-dept-files{margin-top:8px;margin-left:24px}
+.ub-dept-filelist{font-size:11px;color:var(--text3);margin-top:4px}
+.modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:16px}
+.topbar{display:flex;justify-content:space-between;align-items:center}
+.logout-link{color:var(--text3);font-size:12px;cursor:pointer;text-decoration:underline}
+.spinner{display:inline-block;width:14px;height:14px;border:2px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;vertical-align:-2px;margin-right:6px}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <div id="login-view">
+    <h1>CUS Traveler Match</h1>
+    <div class="sub">ProdTrack — Production tool</div>
+    <div class="card" style="max-width:340px">
+      <div class="row" style="flex-direction:column;align-items:stretch;gap:10px">
+        <input type="text" id="li-user" placeholder="Username">
+        <input type="password" id="li-pass" placeholder="Password">
+        <button id="login-btn" onclick="doLogin()">Sign in</button>
+        <div class="err" id="login-err"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="denied-view" class="hidden">
+    <h1>CUS Traveler Match</h1>
+    <div class="card">This tool is for Production accounts only.</div>
+  </div>
+
+  <div id="app-view" class="hidden">
+    <div class="topbar">
+      <div>
+        <h1>CUS Traveler Match</h1>
+        <div class="sub" id="who-line"></div>
+      </div>
+      <div class="logout-link" onclick="doLogout()">Sign out</div>
+    </div>
+
+    <div class="tabs">
+      <div class="tab active" id="tab-match" onclick="switchTab('match')">Match</div>
+      <div class="tab" id="tab-history" onclick="switchTab('history')">History</div>
+    </div>
+
+    <div id="view-match">
+      <div class="card">
+        <div class="row" style="align-items:flex-start">
+          <div class="upload-slot">
+            <label>Production Order PDFs</label>
+            <input type="file" id="f-orders" accept=".pdf" multiple onchange="onFilesChosen('orders')">
+            <div class="filelist" id="fl-orders">No files chosen</div>
+          </div>
+          <div class="upload-slot">
+            <label>Work Ticket Traveler PDFs</label>
+            <input type="file" id="f-travelers" accept=".pdf" multiple onchange="onFilesChosen('travelers')">
+            <div class="filelist" id="fl-travelers">No files chosen</div>
+          </div>
+        </div>
+        <div class="row" style="margin-top:16px">
+          <button id="run-btn" onclick="runBatch()">Run Match</button>
+          <button class="secondary" onclick="resetBatch()">Clear</button>
+        </div>
+        <div class="err" id="run-err"></div>
+      </div>
+
+      <div id="results-wrap" class="hidden">
+        <div class="row" style="justify-content:flex-end;align-items:center">
+          <div class="sub" id="upload-batch-status" style="margin-top:0"></div>
+          <button class="secondary hidden" id="upload-batch-btn" onclick="openUploadBatchModal()">Upload Batch</button>
+          <button class="secondary hidden" id="download-stamped-btn" onclick="downloadStampedPdf()">Download stamped order PDF</button>
+        </div>
+        <div class="results-columns">
+          <div class="card" style="flex:1;min-width:320px">
+            <div class="row" style="justify-content:space-between;align-items:flex-start">
+              <div>
+                <div class="section-title">Matched, by department</div>
+                <div class="section-count">Click a department to filter the preview · click an SO to see its travelers</div>
+              </div>
+              <button class="secondary" id="expand-all-btn" onclick="toggleExpandAll()">Expand All</button>
+            </div>
+            <div id="dept-boxes"></div>
+          </div>
+
+          <div class="card hidden" id="preview-card" style="flex:1;min-width:320px">
+            <div class="section-title">Stamped order PDF preview</div>
+            <div class="section-count">Rendered from the file just built — nothing here has been saved or sent anywhere</div>
+            <div id="preview-pages"></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="section-title">Unmatched order lines <span class="badge badge-warn" id="count-unord"></span></div>
+          <div class="section-count">CUS lines from the order PDFs with no matching traveler ticket uploaded</div>
+          <table id="tbl-unord"><thead><tr><th>SO</th><th>Item Code</th><th>Description</th><th>Qty</th><th>Source file</th></tr></thead><tbody></tbody></table>
+          <div class="empty-note hidden" id="empty-unord">None — every CUS line found a match.</div>
+        </div>
+        <div class="card">
+          <div class="section-title">Unmatched traveler tickets <span class="badge badge-warn" id="count-untrav"></span></div>
+          <div class="section-count">Traveler tickets with no matching order line uploaded</div>
+          <table id="tbl-untrav"><thead><tr><th>SO</th><th>Item Code</th><th>Description</th><th>Traveler #</th><th>Source file</th></tr></thead><tbody></tbody></table>
+          <div class="empty-note hidden" id="empty-untrav">None — every ticket found a match.</div>
+        </div>
+        <div class="card hidden" id="unrecognized-card">
+          <div class="section-title">Unrecognized pages <span class="badge badge-warn" id="count-unrec"></span></div>
+          <div class="section-count">Pages in the traveler PDFs that didn't match the expected ticket layout — check the file.</div>
+          <table id="tbl-unrec"><thead><tr><th>File</th><th>Page</th></tr></thead><tbody></tbody></table>
+        </div>
+      </div>
+    </div>
+
+    <div id="view-history" class="hidden">
+      <div class="card">
+        <input type="text" id="history-search" placeholder="Search by SO / item code / traveler #" style="width:100%" oninput="debouncedHistorySearch()">
+        <table id="tbl-history"><thead><tr><th>SO</th><th>Item Code</th><th>Description</th><th>Qty</th><th>Prod Line</th><th>Traveler #</th><th>Matched By</th><th>When</th></tr></thead><tbody></tbody></table>
+        <div class="empty-note hidden" id="empty-history">No matches logged yet.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="upload-batch-modal">
+  <div class="modal-card">
+    <div class="modal-title">Upload Batch</div>
+    <div class="modal-sub">Choose which departments to send. You can attach extra files (a drawing, a spec) to each department separately — unchecked departments aren't sent and can still be uploaded later.</div>
+    <div id="ub-dept-list"></div>
+    <div class="err" id="ub-modal-err"></div>
+    <div class="modal-actions">
+      <button class="secondary" onclick="closeUploadBatchModal()">Cancel</button>
+      <button onclick="confirmUploadBatch()" id="ub-confirm-btn">Confirm Upload</button>
+    </div>
+  </div>
+</div>
+
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+// ── Config ────────────────────────────────────────────────────────────────
+const SUPA_URL = 'https://hfzqxxfmaqnraxadztoc.supabase.co';
+const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhmenF4eGZtYXFucmF4YWR6dG9jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg2MjY0MzcsImV4cCI6MjA5NDIwMjQzN30.MI7iVdsydhD9uX0X53SU57yx-pI5_SLcTysBAotUflA';
+const DOMAIN = 'prodtrack.local';
+const SESS_KEY = 'pt_sess';
+
+// ── State ─────────────────────────────────────────────────────────────────
+let accessToken = null, refreshToken = null, sessExpiresAt = 0;
+let currentUser = null, currentProfile = null;
+let ordersFiles = [], travelersFiles = [];
+let historyTimer = null;
+let lastMatched = [], lastOrderBytesByFile = {}, lastAllItemsByFile = {}, lastStampedPdfBytes = null, lastStampedPageMap = null;
+
+const H = () => ({'Content-Type':'application/json','apikey':ANON_KEY,'Authorization':'Bearer '+(accessToken||ANON_KEY)});
+
+function escapeHtml(s){
+  const d=document.createElement('div');
+  d.textContent = s==null ? '' : String(s);
+  return d.innerHTML;
+}
+
+// ── Auth ──────────────────────────────────────────────────────────────────
+document.getElementById('li-pass').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
+document.getElementById('li-user').addEventListener('keydown', e => { if(e.key==='Enter') document.getElementById('li-pass').focus(); });
+
+async function getUserEmail(username){
+  try{
+    const r = await fetch(`${SUPA_URL}/rest/v1/profiles?username=eq.${encodeURIComponent(username.trim().toLowerCase())}&select=email`,
+      {headers:{'Content-Type':'application/json','apikey':ANON_KEY}});
+    const rows = await r.json();
+    if(rows.length && rows[0].email) return rows[0].email;
+  }catch(e){}
+  return `${username.trim().toLowerCase()}@${DOMAIN}`;
+}
+
+async function doLogin(){
+  const username = document.getElementById('li-user').value.trim();
+  const pass = document.getElementById('li-pass').value;
+  const btn = document.getElementById('login-btn');
+  const err = document.getElementById('login-err');
+  if(!username||!pass){ err.textContent='Please enter username and password.'; return; }
+  btn.disabled=true; btn.textContent='Signing in…'; err.textContent='';
+  try{
+    const email = await getUserEmail(username);
+    const r = await fetch(`${SUPA_URL}/auth/v1/token?grant_type=password`,{
+      method:'POST', headers:{'Content-Type':'application/json','apikey':ANON_KEY},
+      body:JSON.stringify({email, password:pass})
+    });
+    const data = await r.json();
+    if(!r.ok) throw new Error('Incorrect username or password.');
+    accessToken = data.access_token; refreshToken = data.refresh_token;
+    sessExpiresAt = data.expires_at || (Date.now()/1000+3600);
+    currentUser = data.user;
+    localStorage.setItem(SESS_KEY, JSON.stringify({
+      access_token: accessToken, refresh_token: refreshToken, expires_at: sessExpiresAt,
+      user_id: currentUser.id, email: currentUser.email
+    }));
+    await afterLogin();
+  }catch(e){
+    err.textContent = e.message;
+    btn.disabled=false; btn.textContent='Sign in';
+  }
+}
+
+async function refreshAuthToken(){
+  if(!refreshToken) return false;
+  try{
+    const r = await fetch(`${SUPA_URL}/auth/v1/token?grant_type=refresh_token`,{
+      method:'POST', headers:{'Content-Type':'application/json','apikey':ANON_KEY},
+      body:JSON.stringify({refresh_token:refreshToken})
+    });
+    const data = await r.json();
+    if(!r.ok) return false;
+    accessToken = data.access_token; refreshToken = data.refresh_token;
+    sessExpiresAt = data.expires_at || (Date.now()/1000+3600);
+    localStorage.setItem(SESS_KEY, JSON.stringify({
+      access_token: accessToken, refresh_token: refreshToken, expires_at: sessExpiresAt,
+      user_id: currentUser.id, email: currentUser.email
+    }));
+    return true;
+  }catch(e){ return false; }
+}
+
+function doLogout(){
+  localStorage.removeItem(SESS_KEY);
+  location.reload();
+}
+
+async function afterLogin(){
+  const r = await fetch(`${SUPA_URL}/rest/v1/profiles?id=eq.${currentUser.id}&select=*`, {headers:H()});
+  const rows = await r.json();
+  const p = rows[0] || {};
+  currentProfile = {full_name:p.full_name||'', role:p.role||'worker', username:p.username||''};
+  const allowed = currentProfile.role === 'production' || currentProfile.username === 'zgta26';
+  document.getElementById('login-view').classList.add('hidden');
+  if(!allowed){
+    document.getElementById('denied-view').classList.remove('hidden');
+    return;
+  }
+  document.getElementById('app-view').classList.remove('hidden');
+  document.getElementById('who-line').textContent = `${currentProfile.full_name||currentProfile.username} · ${currentProfile.role}`;
+  loadHistory('');
+}
+
+async function tryRestoreSession(){
+  const raw = localStorage.getItem(SESS_KEY);
+  if(!raw) return;
+  try{
+    const s = JSON.parse(raw);
+    accessToken=s.access_token; refreshToken=s.refresh_token; sessExpiresAt=s.expires_at;
+    currentUser={id:s.user_id, email:s.email};
+    if(Date.now()/1000 > sessExpiresAt - 60){
+      const ok = await refreshAuthToken();
+      if(!ok){ localStorage.removeItem(SESS_KEY); return; }
+    }
+    await afterLogin();
+  }catch(e){ localStorage.removeItem(SESS_KEY); }
+}
+tryRestoreSession();
+
+// ── Tabs ──────────────────────────────────────────────────────────────────
+function switchTab(name){
+  document.getElementById('tab-match').classList.toggle('active', name==='match');
+  document.getElementById('tab-history').classList.toggle('active', name==='history');
+  document.getElementById('view-match').classList.toggle('hidden', name!=='match');
+  document.getElementById('view-history').classList.toggle('hidden', name!=='history');
+}
+
+// ── File selection ────────────────────────────────────────────────────────
+function onFilesChosen(kind){
+  const input = document.getElementById(kind==='orders'?'f-orders':'f-travelers');
+  const files = Array.from(input.files);
+  if(kind==='orders') ordersFiles = files; else travelersFiles = files;
+  document.getElementById(kind==='orders'?'fl-orders':'fl-travelers').textContent =
+    files.length ? files.map(f=>f.name).join(', ') : 'No files chosen';
+}
+
+function resetBatch(){
+  ordersFiles = []; travelersFiles = [];
+  lastMatched = []; lastOrderBytesByFile = {}; lastAllItemsByFile = {}; lastStampedPdfBytes = null; lastStampedPageMap = null;
+  activeDeptFilter = null; soClassifications = {};
+  document.getElementById('f-orders').value = '';
+  document.getElementById('f-travelers').value = '';
+  document.getElementById('fl-orders').textContent = 'No files chosen';
+  document.getElementById('fl-travelers').textContent = 'No files chosen';
+  document.getElementById('results-wrap').classList.add('hidden');
+  document.getElementById('preview-card').classList.add('hidden');
+  document.getElementById('download-stamped-btn').classList.add('hidden');
+  document.getElementById('upload-batch-btn').classList.add('hidden');
+  document.getElementById('upload-batch-status').textContent = '';
+  document.getElementById('run-err').textContent = '';
+}
+
+// ── Stamped PDF output ─────────────────────────────────────────────────────
+// Rebuilds the uploaded Production Order PDF(s) with each matched traveler
+// number drawn at the item line's original position — same spot it's
+// currently handwritten. Purely client-side; nothing is sent anywhere.
+async function downloadStampedPdf(){
+  if(!lastMatched.length) return;
+  const btn = document.getElementById('download-stamped-btn');
+  btn.disabled = true; const origLabel = btn.textContent; btn.textContent = 'Building…';
+  try{
+    if(!lastStampedPdfBytes){
+      const built = await buildStampedPdf(lastOrderBytesByFile, lastMatched, lastAllItemsByFile);
+      lastStampedPdfBytes = built.bytes;
+      lastStampedPageMap = built.pageMap;
+    }
+    const blob = new Blob([lastStampedPdfBytes], {type:'application/pdf'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'production-order-stamped.pdf';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+  }catch(e){
+    document.getElementById('run-err').textContent = 'Could not build the stamped PDF: ' + (e.message||e);
+  }finally{
+    btn.disabled = false; btn.textContent = origLabel;
+  }
+}
+
+// ── Upload Batch — sends one Inbox entry per department to Supabase ───────
+const BATCH_BUCKET = 'batch-pdfs';
+
+// Groups this run's matched items into { wood:[{so,ship_date,travelers:[...]}], ... }.
+// Unclassified items (no resolved department) have nowhere to send, so they're
+// skipped here — they still show under "Unclassified" in the on-screen results.
+function buildDeptBatchEntries(){
+  const byDept = {};
+  lastMatched.forEach(m => {
+    const d = m.dept && m.dept.primary;
+    if(!d) return;
+    byDept[d] = byDept[d] || {};
+    byDept[d][m.so] = byDept[d][m.so] || {so:m.so, ship_date:m.shipDate||'', travelers:[]};
+    byDept[d][m.so].travelers.push(m.travelerNo);
+  });
+  const out = {};
+  Object.keys(byDept).forEach(d => {
+    out[d] = Object.values(byDept[d]).map(e => {
+      const cls = soClassifications[classKey(d, e.so)] || {};
+      return {...e, see_pic: !!cls.seePic, hot: !!cls.hot};
+    });
+  });
+  return out;
+}
+
+// Extracts just the stamped pages relevant to one department out of the
+// already-built merged PDF, using the same fileName+page lookup the preview
+// filter uses. Returns null if that department has no pages. Also stamps
+// "*HOT*" in the blank space below WHOLESALE on any page whose SO was
+// marked HOT for this department.
+async function buildDeptPdfSubset(dept){
+  const { PDFDocument, StandardFonts, rgb } = PDFLib;
+  const pageIndices = [];
+  lastStampedPageMap.forEach((src, idx) => {
+    const onThisPage = lastMatched.some(m => m.fileName===src.fileName && m.page===src.page && m.dept && m.dept.primary===dept);
+    if(onThisPage) pageIndices.push(idx);
+  });
+  if(!pageIndices.length) return null;
+  const srcDoc = await PDFDocument.load(lastStampedPdfBytes);
+  const outDoc = await PDFDocument.create();
+  const hotFont = await outDoc.embedFont(StandardFonts.HelveticaBold);
+  const copied = await outDoc.copyPages(srcDoc, pageIndices);
+  copied.forEach((p, i) => {
+    outDoc.addPage(p);
+    const src = lastStampedPageMap[pageIndices[i]];
+    const item = lastMatched.find(m => m.fileName===src.fileName && m.page===src.page && m.dept && m.dept.primary===dept);
+    const cls = item ? soClassifications[classKey(dept, item.so)] : null;
+    if(cls && cls.hot){
+      p.drawText('*HOT*', {x:18, y:630, size:36, font:hotFont, color:rgb(0.85,0.1,0.1)});
+    }
+  });
+  return await outDoc.save();
+}
+
+let ubExtraFiles = {}; // {dept: File[]} — chosen extra files per department, reset each time the modal opens
+
+function openUploadBatchModal(){
+  if(!lastMatched.length) return;
+  const byDept = buildDeptBatchEntries();
+  const depts = Object.keys(byDept);
+  const status = document.getElementById('upload-batch-status');
+  if(!depts.length){ status.textContent = 'Nothing to upload — no classified matches this run.'; return; }
+
+  ubExtraFiles = {};
+  const wrap = document.getElementById('ub-dept-list');
+  wrap.innerHTML = depts.map(d => `
+    <div class="ub-dept-row">
+      <label><input type="checkbox" checked class="ub-dept-check" data-dept="${d}"> ${DEPT_META[d].label} (${byDept[d].length} SO${byDept[d].length===1?'':'s'})</label>
+      <div class="ub-dept-files">
+        <input type="file" multiple onchange="onUbExtraFilesChosen('${d}', this)">
+        <div class="ub-dept-filelist" id="ub-filelist-${d}">No extra files</div>
+      </div>
+    </div>`).join('');
+  document.getElementById('ub-modal-err').textContent = '';
+  document.getElementById('upload-batch-modal').classList.add('open');
+}
+
+function closeUploadBatchModal(){
+  document.getElementById('upload-batch-modal').classList.remove('open');
+}
+
+function onUbExtraFilesChosen(dept, input){
+  ubExtraFiles[dept] = Array.from(input.files);
+  document.getElementById(`ub-filelist-${dept}`).textContent =
+    ubExtraFiles[dept].length ? ubExtraFiles[dept].map(f=>f.name).join(', ') : 'No extra files';
+}
+
+document.addEventListener('keydown', e => { if(e.key==='Escape') closeUploadBatchModal(); });
+
+async function confirmUploadBatch(){
+  const err = document.getElementById('ub-modal-err');
+  err.textContent = '';
+  const checked = Array.from(document.querySelectorAll('.ub-dept-check:checked')).map(el=>el.dataset.dept);
+  if(!checked.length){ err.textContent = 'Choose at least one department.'; return; }
+
+  const btn = document.getElementById('ub-confirm-btn');
+  btn.disabled = true; const origLabel = btn.textContent; btn.textContent = 'Uploading…';
+  try{
+    if(!lastStampedPdfBytes){
+      const built = await buildStampedPdf(lastOrderBytesByFile, lastMatched, lastAllItemsByFile);
+      lastStampedPdfBytes = built.bytes;
+      lastStampedPageMap = built.pageMap;
+    }
+    const byDept = buildDeptBatchEntries();
+    const uploadedBy = currentProfile.full_name || currentProfile.username || 'unknown';
+    const summary = [];
+    for(const dept of checked){
+      const entries = byDept[dept];
+      if(!entries) continue;
+
+      const pdfBytes = await buildDeptPdfSubset(dept);
+      let pdfUrl = null;
+      if(pdfBytes){
+        const path = `${dept}/${Date.now()}_${Math.random().toString(36).slice(2)}.pdf`;
+        const r = await fetch(`${SUPA_URL}/storage/v1/object/${BATCH_BUCKET}/${path}`,{
+          method:'POST',
+          headers:{'apikey':ANON_KEY,'Authorization':'Bearer '+(accessToken||ANON_KEY),'Content-Type':'application/pdf'},
+          body: pdfBytes
+        });
+        if(!r.ok) throw new Error(`Upload failed for ${DEPT_META[dept].label}: ${await r.text()}`);
+        pdfUrl = `${SUPA_URL}/storage/v1/object/public/${BATCH_BUCKET}/${path}`;
+      }
+
+      const files = ubExtraFiles[dept] || [];
+      const extraFiles = [];
+      for(const f of files){
+        const path = `${dept}/extra/${Date.now()}_${Math.random().toString(36).slice(2)}_${f.name}`;
+        const buf = await f.arrayBuffer();
+        const r = await fetch(`${SUPA_URL}/storage/v1/object/${BATCH_BUCKET}/${path}`,{
+          method:'POST',
+          headers:{'apikey':ANON_KEY,'Authorization':'Bearer '+(accessToken||ANON_KEY),'Content-Type':f.type||'application/octet-stream'},
+          body: buf
+        });
+        if(!r.ok) throw new Error(`Extra file upload failed for ${DEPT_META[dept].label}: ${await r.text()}`);
+        extraFiles.push({name:f.name, url:`${SUPA_URL}/storage/v1/object/public/${BATCH_BUCKET}/${path}`});
+      }
+
+      const insertBody = {department:dept, entries, pdf_url:pdfUrl, uploaded_by:uploadedBy};
+      if(extraFiles.length) insertBody.extra_files = extraFiles;
+
+      const insertRes = await fetch(`${SUPA_URL}/rest/v1/department_batches`,{
+        method:'POST', headers:{...H(), 'Prefer':'return=minimal'},
+        body: JSON.stringify(insertBody)
+      });
+      if(!insertRes.ok) throw new Error(`Saving batch failed for ${DEPT_META[dept].label}: ${await insertRes.text()}`);
+      summary.push(`${DEPT_META[dept].label} (${entries.length} SO${entries.length===1?'':'s'}${extraFiles.length?`, ${extraFiles.length} extra file${extraFiles.length===1?'':'s'}`:''})`);
+    }
+    document.getElementById('upload-batch-status').textContent = `Uploaded: ${summary.join(', ')}`;
+    closeUploadBatchModal();
+  }catch(e){
+    err.textContent = e.message || 'Upload failed.';
+  }finally{
+    btn.disabled = false; btn.textContent = origLabel;
+  }
+}
+
+// ── PDF text extraction (line reconstruction by position) ────────────────
+// Returns {pages, bytes}: pages is an array (per PDF page) of {text, y} lines,
+// bytes is the raw file bytes (kept so the order PDF can be re-loaded and
+// stamped later by pdf-lib without re-reading the file).
+async function pdfFileToPagesWithPos(file){
+  const buf = await file.arrayBuffer();
+  const doc = await pdfjsLib.getDocument({data:new Uint8Array(buf.slice(0))}).promise;
+  const pages = [];
+  for(let p=1;p<=doc.numPages;p++){
+    const page = await doc.getPage(p);
+    const content = await page.getTextContent();
+    const pts = content.items.map(it=>({str:it.str,x:it.transform[4],y:it.transform[5],width:it.width||0})).filter(o=>o.str.trim()!=='');
+    pts.sort((a,b)=>b.y-a.y || a.x-b.x);
+    const lines=[];
+    const TOL=3;
+    pts.forEach(pt=>{
+      let line=lines.find(l=>Math.abs(l.y-pt.y)<=TOL);
+      if(!line){ line={y:pt.y,items:[]}; lines.push(line); }
+      line.items.push(pt);
+    });
+    lines.forEach(l=>l.items.sort((a,b)=>a.x-b.x));
+    pages.push(lines.map(l=>({text:l.items.map(i=>i.str).join(' '), y:l.y, tokens:l.items})));
+  }
+  return {pages, bytes: buf};
+}
+
+function normText(s){ return (s||'').replace(/\s+/g,' ').trim().toUpperCase(); }
+function bytesToLatin1(bytes){ let s=''; for(let i=0;i<bytes.length;i++) s+=String.fromCharCode(bytes[i]); return s; }
+function latin1ToBytes(str){ const a=new Uint8Array(str.length); for(let i=0;i<str.length;i++) a[i]=str.charCodeAt(i)&0xFF; return a; }
+
+// ── Department classification (mirrors ProdTrack's own prod-line mapping) ──
+// Gear 100–310 (excl. 120/150/151), Gate 120/150/151, Wood 500–700, Metal 705–900.
+// 151 → gate + metal (dual), 516 → wood + metal (dual). Primary department is
+// used for which match box an item appears in and for its highlight color;
+// dual items are not currently split across two boxes.
+function classifyDept(prodLineStr){
+  const n = parseInt(prodLineStr, 10);
+  if(!Number.isFinite(n)) return {primary:null, extra:null};
+  if(n === 151) return {primary:'gate', extra:'metal'};
+  if(n === 516) return {primary:'wood', extra:'metal'};
+  if(n === 120 || n === 150) return {primary:'gate', extra:null};
+  if(n >= 100 && n <= 310) return {primary:'gear', extra:null};
+  if(n >= 500 && n <= 700) return {primary:'wood', extra:null};
+  if(n >= 705 && n <= 900) return {primary:'metal', extra:null};
+  return {primary:null, extra:null};
+}
+
+const DEPT_ORDER = ['wood','metal','gate','gear'];
+const DEPT_META = {
+  wood:  {label:'Wood',  css:'#bdf0bd', pdfColor:[0.80,0.95,0.80]},
+  metal: {label:'Metal', css:'#bcd6ff', pdfColor:[0.80,0.88,1.00]},
+  gate:  {label:'Gate',  css:'#ffc9d9', pdfColor:[1.00,0.82,0.88]},
+  gear:  {label:'Gear',  css:'#ffd9a8', pdfColor:[1.00,0.87,0.68]},
+};
+
+// ── Production Order PDF parsing ──────────────────────────────────────────
+// Every item (not just CUS) carries: dept (from its prod line), lineYs (the
+// y-position of its item-code line AND every wrapped description line — used
+// to find/erase the matching highlight rectangle on description lines), and
+// codeBox/qtyBox (exact x-bounds of the item-code and Ordered-qty text on the
+// item-code line — used to draw two narrow highlight boxes instead of the
+// original full-row one). page/y is the item-code line's position, used to
+// stamp the traveler #.
+function parseOrderPDF(pages, fileName){
+  const allLines = [];
+  pages.forEach((linesArr, pageIdx) => linesArr.forEach(l => allLines.push({text:l.text, y:l.y, page:pageIdx, tokens:l.tokens})));
+  let so = '';
+  for(let i=0;i<allLines.length;i++){
+    if(allLines[i].text.trim()==='Order Number:'){ so = (allLines[i+1]?.text||'').trim(); break; }
+  }
+  let shipDate = '';
+  for(const ln of allLines){
+    const m = ln.text.match(/Ship\/PU Date:\s*([\d\/]+)/);
+    if(m){ shipDate = m[1]; break; }
+  }
+  const itemLineRe = /^(\S+)\s+([A-Z]{1,4})\s+([\d,]+\.\d{1,2})\s+([\d,]+\.\d{1,2})$/;
+  const prodLineRe = /^(\d{4})$/;
+  const items = [];
+  let currentProdLine = '';
+  let cur = null;
+  const flush = () => {
+    if(cur){ cur.description = normText(cur.descLines.join(' ')); delete cur.descLines; items.push(cur); }
+    cur = null;
+  };
+  for(const ln of allLines){
+    const line = ln.text.trim();
+    const mProd = line.match(prodLineRe);
+    const mItem = line.match(itemLineRe);
+    if(mProd){ flush(); currentProdLine = mProd[1]; continue; }
+    if(mItem){
+      flush();
+      const toks = ln.tokens || []; // [itemCode, unit, orderedQty, backOrderQty] left-to-right
+      const codeBox = toks[0] ? {x0:toks[0].x, x1:toks[0].x+toks[0].width} : null;
+      const qtyBox  = toks[2] ? {x0:toks[2].x, x1:toks[2].x+toks[2].width} : null;
+      cur = {so, itemCode:mItem[1], qty:parseFloat(mItem[3].replace(/,/g,'')), prodLine:currentProdLine,
+             descLines:[], page:ln.page, y:ln.y, lineYs:[ln.y], fileName, dept:classifyDept(currentProdLine),
+             codeBox, qtyBox, shipDate};
+      continue;
+    }
+    if(cur){
+      if(/^Printed:/i.test(line)){ flush(); continue; }
+      cur.descLines.push(line);
+      cur.lineYs.push(ln.y);
+    }
+  }
+  flush();
+  const cusItems = items.filter(it=>/-CUS$/i.test(it.itemCode));
+  return {so, allItems:items, cusItems, skippedCount: items.length - cusItems.length, fileName};
+}
+
+// ── Work Ticket Traveler PDF parsing ──────────────────────────────────────
+function parseTravelerPDF(pages, fileName){
+  const tickets = [], unrecognized = [];
+  pages.forEach((lines, idx) => {
+    const joined = lines.map(l=>l.text).join('\n');
+    if(!/Work Ticket Traveler/i.test(joined)){ unrecognized.push({page:idx+1, fileName}); return; }
+    const mTicket = joined.match(/Work Ticket No\.:\s*(\d+)/);
+    const mItem = joined.match(/Item Code:\s*(\S+)/);
+    const mSO = joined.match(/S\/O\s+(\d+)/);
+    const mQty = joined.match(/Quantity:\s*([\d,]+\.\d+)/);
+    let mProd = joined.match(/(\d{4})\s+Work Ticket Traveler/);
+    if(!mProd) mProd = joined.match(/Prod Line:[\s\S]*?(\d{4})/);
+    const mDesc = joined.match(/Description:\s*([\s\S]*?)\n\s*Quantity:/);
+    if(!mTicket || !mItem || !mSO){ unrecognized.push({page:idx+1, fileName}); return; }
+    tickets.push({
+      travelerNo:String(parseInt(mTicket[1],10)),
+      itemCode:mItem[1], so:mSO[1],
+      qty:mQty?parseFloat(mQty[1].replace(/,/g,'')):null,
+      prodLine:mProd?mProd[1]:'',
+      description:normText(mDesc?mDesc[1]:''),
+      fileName, page:idx+1
+    });
+  });
+  return {tickets, unrecognized};
+}
+
+// ── Matching ───────────────────────────────────────────────────────────────
+function runMatchLogic(orderResults, travelerResults){
+  const allCus = [];
+  orderResults.forEach(r => r.cusItems.forEach(it => allCus.push(it)));
+  const allTickets = [];
+  travelerResults.forEach(r => r.tickets.forEach(t => allTickets.push(t)));
+  const ticketPool = allTickets.slice();
+  const matched = [], unmatchedOrders = [];
+  allCus.forEach(it => {
+    const idx = ticketPool.findIndex(t =>
+      t.so === it.so &&
+      t.itemCode.toUpperCase() === it.itemCode.toUpperCase() &&
+      normText(t.description) === normText(it.description)
+    );
+    if(idx === -1) unmatchedOrders.push(it);
+    else { const t = ticketPool.splice(idx,1)[0]; matched.push({...it, travelerNo:t.travelerNo}); }
+  });
+  return {matched, unmatchedOrders, unmatchedTickets: ticketPool};
+}
+
+// ── Recolor highlight rectangles in the source PDF by department ──────────
+// The yellow highlight behind each CUS line is a real filled rectangle drawn
+// in the page's content stream (not an annotation). This finds those
+// rectangles, figures out which parsed item each one belongs to (by matching
+// its vertical position against that item's line positions), and repaints it
+// in that item's department color. Left untouched if the page's structure
+// doesn't match what we expect (safer than guessing wrong).
+async function recolorPageHighlightsInPlace(doc, page, itemsForPage){
+  const { PDFName, PDFRawStream, PDFArray, decodePDFRawStream } = PDFLib;
+  let contentsRef = page.node.get(PDFName.of('Contents'));
+  const contentsObj = doc.context.lookup(contentsRef);
+  const streamObjs = contentsObj instanceof PDFArray
+    ? contentsObj.asArray().map(ref => doc.context.lookup(ref))
+    : [contentsObj];
+
+  let text = '';
+  try{
+    for(const so of streamObjs){
+      const decoded = decodePDFRawStream({dict:so.dict, contents:so.contents}).decode();
+      text += bytesToLatin1(decoded);
+    }
+  }catch(e){ return; } // couldn't decode — leave page untouched
+
+  const cmMatch = text.match(/^1\s+0\s+0\s+1\s+([\-\d.]+)\s+([\-\d.]+)\s+cm/);
+  if(!cmMatch) return; // unexpected page structure — leave untouched
+  const ty = parseFloat(cmMatch[2]);
+
+  const highlightRe = /(1(?:\.0+)?)\s+(1(?:\.0+)?)\s+(0(?:\.0+)?)\s+(sc|rg)\b([\s\S]{0,60}?)(-?[\d.]+)\s+(-?[\d.]+)\s+(-?[\d.]+)\s+(-?[\d.]+)\s+re\s*\n?f\b/g;
+  const newText = text.replace(highlightRe, (whole, r,g,b,op,gap,x,y,w,h) => {
+    const rectY = parseFloat(y), rectH = parseFloat(h);
+    const yTop = ty + rectY, yBottom = yTop + rectH;
+    const loY = Math.min(yTop,yBottom) - 2, hiY = Math.max(yTop,yBottom) + 2;
+    const owner = itemsForPage.find(it => it.lineYs.some(ly => ly >= loY && ly <= hiY));
+    if(!owner || !owner.dept || !owner.dept.primary) return whole; // unclassified/unowned — leave original yellow
+    const isPrimaryLine = owner.lineYs[0] >= loY && owner.lineYs[0] <= hiY;
+    if(!isPrimaryLine) return gap; // description line — erase the highlight, keep ET so the stream stays valid
+    if(!owner.codeBox || !owner.qtyBox) return whole; // couldn't find token bounds — leave original rect alone
+    const c = DEPT_META[owner.dept.primary].pdfColor;
+    const pad = 2;
+    const cx = (owner.codeBox.x0-pad).toFixed(2), cw = (owner.codeBox.x1-owner.codeBox.x0+pad*2).toFixed(2);
+    const qx = (owner.qtyBox.x0-pad).toFixed(2), qw = (owner.qtyBox.x1-owner.qtyBox.x0+pad*2).toFixed(2);
+    return `${c[0].toFixed(3)} ${c[1].toFixed(3)} ${c[2].toFixed(3)} ${op}${gap}${cx} ${y} ${cw} ${h} re\nf\n${qx} ${y} ${qw} ${h} re\nf`;
+  });
+  if(newText === text) return;
+
+  const newStream = doc.context.flateStream(latin1ToBytes(newText));
+  const streamRef = doc.context.register(newStream);
+  page.node.set(PDFName.of('Contents'), streamRef);
+}
+
+// Recolors highlights (by department) and stamps traveler numbers into a
+// fresh merged PDF built from the uploaded order file(s). Purely client-side.
+// Also returns pageMap: for each page of the merged output, which source
+// file/page it came from — used so the preview can be filtered by department.
+// True if any matched item on this page belongs to an SO marked HOT
+// (checked against whatever department that item resolved to).
+function isPageHot(fileName, page){
+  return lastMatched.some(m => {
+    if(m.fileName!==fileName || m.page!==page) return false;
+    const d = m.dept && m.dept.primary;
+    if(!d) return false;
+    const cls = soClassifications[classKey(d, m.so)];
+    return !!(cls && cls.hot);
+  });
+}
+
+async function buildStampedPdf(orderBytesByFile, matched, allItemsByFile){
+  const { PDFDocument, StandardFonts, rgb } = PDFLib;
+  const outDoc = await PDFDocument.create();
+  const font = await outDoc.embedFont(StandardFonts.HelveticaBold);
+  const hotFont = await outDoc.embedFont(StandardFonts.HelveticaBold);
+
+  const stampsByFile = {};
+  matched.forEach(m => {
+    stampsByFile[m.fileName] = stampsByFile[m.fileName] || {};
+    stampsByFile[m.fileName][m.page] = stampsByFile[m.fileName][m.page] || [];
+    stampsByFile[m.fileName][m.page].push(m);
+  });
+
+  const pageMap = [];
+  for(const fileName of Object.keys(orderBytesByFile)){
+    const srcDoc = await PDFDocument.load(orderBytesByFile[fileName]);
+    const srcPages = srcDoc.getPages();
+    const allItems = allItemsByFile[fileName] || [];
+    for(let pIdx=0; pIdx<srcPages.length; pIdx++){
+      const itemsForPage = allItems.filter(it => it.page === pIdx);
+      if(itemsForPage.length) await recolorPageHighlightsInPlace(srcDoc, srcPages[pIdx], itemsForPage);
+    }
+    const idxs = srcDoc.getPageIndices();
+    const copied = await outDoc.copyPages(srcDoc, idxs);
+    copied.forEach((p, idx) => {
+      outDoc.addPage(p);
+      const stamps = (stampsByFile[fileName]||{})[idx] || [];
+      stamps.forEach(s => p.drawText(s.travelerNo, {x:215, y:s.y, size:13, font, color:rgb(0,0,0)}));
+      if(isPageHot(fileName, idx)){
+        p.drawText('*HOT*', {x:18, y:630, size:36, font:hotFont, color:rgb(0.85,0.1,0.1)});
+      }
+      pageMap.push({fileName, page: idx});
+    });
+  }
+  const bytes = await outDoc.save();
+  return {bytes, pageMap};
+}
+
+let activeDeptFilter = null;
+
+let soClassifications = {}; // `${dept}::${so}` -> {seePic:bool, hot:bool}
+const classKey = (dept, so) => `${dept}::${so}`;
+
+async function toggleSoClass(dept, so, kind, btnEl){
+  const key = classKey(dept, so);
+  const cur = soClassifications[key] || {seePic:false, hot:false};
+  cur[kind] = !cur[kind];
+  soClassifications[key] = cur;
+  btnEl.classList.toggle('active', cur[kind]);
+
+  // HOT changes what the stamped PDF looks like, so rebuild it and refresh
+  // the live preview immediately. See Pic doesn't touch the PDF, so it's a no-op here.
+  if(kind === 'hot' && lastMatched.length){
+    lastStampedPdfBytes = null; lastStampedPageMap = null;
+    const built = await buildStampedPdf(lastOrderBytesByFile, lastMatched, lastAllItemsByFile);
+    lastStampedPdfBytes = built.bytes;
+    lastStampedPageMap = built.pageMap;
+    if(!document.getElementById('preview-card').classList.contains('hidden')){
+      await renderPdfPreview(lastStampedPdfBytes, lastStampedPageMap, lastMatched);
+    }
+  }
+}
+
+function toggleSoGroup(headerEl){
+  const body = headerEl.nextElementSibling;
+  const chevron = headerEl.querySelector('.so-chevron');
+  const isOpen = body.style.display !== 'none';
+  body.style.display = isOpen ? 'none' : 'block';
+  chevron.textContent = isOpen ? '▸' : '▾';
+}
+
+let allSoGroupsExpanded = false;
+function toggleExpandAll(){
+  allSoGroupsExpanded = !allSoGroupsExpanded;
+  document.querySelectorAll('.so-group-body').forEach(b => b.style.display = allSoGroupsExpanded ? 'block' : 'none');
+  document.querySelectorAll('.so-chevron').forEach(c => c.textContent = allSoGroupsExpanded ? '▾' : '▸');
+  document.getElementById('expand-all-btn').textContent = allSoGroupsExpanded ? 'Collapse All' : 'Expand All';
+}
+
+function selectDeptFilter(dept){
+  activeDeptFilter = (activeDeptFilter === dept) ? null : dept;
+  document.querySelectorAll('.dept-box').forEach(el => {
+    const isActive = el.dataset.dept === activeDeptFilter;
+    el.classList.toggle('active', isActive);
+    el.classList.toggle('collapsed', !!activeDeptFilter && !isActive);
+  });
+  applyPreviewFilter();
+}
+
+function applyPreviewFilter(){
+  document.querySelectorAll('#preview-pages .preview-page-block').forEach(block => {
+    const depts = (block.dataset.depts||'').split(',').filter(Boolean);
+    const show = !activeDeptFilter || depts.includes(activeDeptFilter);
+    block.style.display = show ? '' : 'none';
+  });
+}
+
+async function renderPdfPreview(bytes, pageMap, matched){
+  const wrap = document.getElementById('preview-pages');
+  wrap.innerHTML = '';
+  const doc = await pdfjsLib.getDocument({data:bytes.slice(0)}).promise;
+  for(let p=1;p<=doc.numPages;p++){
+    const page = await doc.getPage(p);
+    const viewport = page.getViewport({scale:1.3});
+    const canvas = document.createElement('canvas');
+    canvas.className = 'preview-page';
+    canvas.width = viewport.width; canvas.height = viewport.height;
+    await page.render({canvasContext:canvas.getContext('2d'), viewport}).promise;
+
+    const src = pageMap[p-1] || {};
+    const deptsOnPage = new Set();
+    matched.forEach(m => {
+      if(m.fileName!==src.fileName || m.page!==src.page) return;
+      deptsOnPage.add((m.dept && m.dept.primary) || 'unclassified');
+    });
+
+    const block = document.createElement('div');
+    block.className = 'preview-page-block';
+    block.dataset.depts = Array.from(deptsOnPage).join(',');
+    block.appendChild(canvas);
+    const label = document.createElement('div');
+    label.className = 'preview-page-label';
+    label.textContent = `Page ${p} of ${doc.numPages}`;
+    block.appendChild(label);
+    wrap.appendChild(block);
+  }
+  applyPreviewFilter();
+  document.getElementById('preview-card').classList.remove('hidden');
+}
+
+// ── Batch run ──────────────────────────────────────────────────────────────
+async function runBatch(){
+  const err = document.getElementById('run-err');
+  const btn = document.getElementById('run-btn');
+  err.textContent = '';
+  if(!ordersFiles.length || !travelersFiles.length){
+    err.textContent = 'Choose at least one Production Order PDF and one Work Ticket Traveler PDF.';
+    return;
+  }
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Parsing…';
+  try{
+    const orderResults = [];
+    const orderBytesByFile = {};
+    const allItemsByFile = {};
+    for(const f of ordersFiles){
+      const {pages, bytes} = await pdfFileToPagesWithPos(f);
+      orderBytesByFile[f.name] = bytes;
+      const res = parseOrderPDF(pages, f.name);
+      orderResults.push(res);
+      allItemsByFile[f.name] = res.allItems;
+    }
+    const travelerResults = [];
+    const unrecognizedAll = [];
+    for(const f of travelersFiles){
+      const {pages} = await pdfFileToPagesWithPos(f);
+      const res = parseTravelerPDF(pages, f.name);
+      travelerResults.push(res);
+      unrecognizedAll.push(...res.unrecognized);
+    }
+    const {matched, unmatchedOrders, unmatchedTickets} = runMatchLogic(orderResults, travelerResults);
+    lastMatched = matched;
+    lastOrderBytesByFile = orderBytesByFile;
+    lastAllItemsByFile = allItemsByFile;
+    lastStampedPdfBytes = null;
+    lastStampedPageMap = null;
+    activeDeptFilter = null;
+    soClassifications = {};
+    document.getElementById('download-stamped-btn').classList.toggle('hidden', matched.length===0);
+    document.getElementById('upload-batch-btn').classList.toggle('hidden', matched.length===0);
+    document.getElementById('upload-batch-status').textContent = '';
+    document.getElementById('preview-card').classList.add('hidden');
+
+    if(matched.length){
+      const matchedBy = currentProfile.full_name || currentProfile.username || 'unknown';
+      const payload = matched.map(m => ({
+        so:m.so, item_code:m.itemCode, description:m.description, qty:m.qty,
+        prod_line:m.prodLine, traveler_no:m.travelerNo, matched_by:matchedBy
+      }));
+      const r = await fetch(`${SUPA_URL}/rest/v1/cus_traveler_matches`,{
+        method:'POST', headers:{...H(), 'Prefer':'return=minimal'}, body:JSON.stringify(payload)
+      });
+      if(!r.ok){ throw new Error('Matched, but saving to the log failed. Nothing else was affected — try Run Match again.'); }
+    }
+
+    renderResults(matched, unmatchedOrders, unmatchedTickets, unrecognizedAll);
+
+    if(matched.length){
+      btn.innerHTML = '<span class="spinner"></span>Building stamped PDF…';
+      const built = await buildStampedPdf(orderBytesByFile, matched, allItemsByFile);
+      lastStampedPdfBytes = built.bytes;
+      lastStampedPageMap = built.pageMap;
+      await renderPdfPreview(lastStampedPdfBytes, lastStampedPageMap, matched);
+    }
+
+    if(document.getElementById('view-history') && !document.getElementById('view-history').classList.contains('hidden')) loadHistory(document.getElementById('history-search').value);
+  }catch(e){
+    err.textContent = e.message || 'Something went wrong parsing these files.';
+  }finally{
+    btn.disabled = false; btn.textContent = 'Run Match';
+  }
+}
+
+function renderResults(matched, unmatchedOrders, unmatchedTickets, unrecognized){
+  document.getElementById('results-wrap').classList.remove('hidden');
+  allSoGroupsExpanded = false;
+  document.getElementById('expand-all-btn').textContent = 'Expand All';
+
+  const boxesWrap = document.getElementById('dept-boxes');
+  boxesWrap.innerHTML = '';
+  const byDept = {};
+  const unclassified = [];
+  matched.forEach(m => {
+    const d = m.dept && m.dept.primary;
+    if(!d){ unclassified.push(m); return; }
+    (byDept[d] = byDept[d] || []).push(m);
+  });
+  const rowsHtml = list => list.map(m =>
+    `<tr><td>${escapeHtml(m.itemCode)}</td><td>${escapeHtml(m.description)}</td><td>${Number(m.qty).toFixed(2)}</td><td>${escapeHtml(m.travelerNo)}</td></tr>`
+  ).join('');
+  const soGroupHtml = (deptKey, so, items) => {
+    const cls = soClassifications[classKey(deptKey, so)] || {};
+    return `
+    <div class="so-group">
+      <div class="so-group-header" onclick="toggleSoGroup(this)">
+        <span class="so-chevron">▸</span><span>SO ${escapeHtml(so)}</span><span class="badge badge-ok">${items.length}</span>
+        <span class="so-classify-btns">
+          <button type="button" class="so-tag-btn${cls.seePic?' active':''}" onclick="event.stopPropagation();toggleSoClass('${deptKey}','${escapeHtml(so)}','seePic',this)">See Pic</button>
+          <button type="button" class="so-tag-btn hot${cls.hot?' active':''}" onclick="event.stopPropagation();toggleSoClass('${deptKey}','${escapeHtml(so)}','hot',this)">HOT</button>
+        </span>
+      </div>
+      <div class="so-group-body" style="display:none">
+        <table><thead><tr><th>Item Code</th><th>Description</th><th>Qty</th><th>Traveler #</th></tr></thead><tbody>${rowsHtml(items)}</tbody></table>
+      </div>
+    </div>`;
+  };
+  const boxHtml = (label, css, list, deptKey) => {
+    const bySo = {};
+    list.forEach(m => { (bySo[m.so] = bySo[m.so] || []).push(m); });
+    const groups = Object.keys(bySo).map(so => soGroupHtml(deptKey, so, bySo[so])).join('');
+    return `
+    <div class="dept-box" style="border-left-color:${css}" data-dept="${deptKey}">
+      <div class="dept-box-title" onclick="selectDeptFilter('${deptKey}')"><span class="dept-swatch" style="background:${css}"></span>${escapeHtml(label)} <span class="badge badge-ok">${list.length}</span></div>
+      <div class="dept-box-body">
+        ${list.length ? groups : `<div class="empty-note">None matched this run.</div>`}
+      </div>
+    </div>`;
+  };
+  DEPT_ORDER.forEach(d => {
+    boxesWrap.insertAdjacentHTML('beforeend', boxHtml(DEPT_META[d].label, DEPT_META[d].css, byDept[d]||[], d));
+  });
+  if(unclassified.length){
+    boxesWrap.insertAdjacentHTML('beforeend', boxHtml('Unclassified (unrecognized prod line)', '#888', unclassified, 'unclassified'));
+  }
+
+  document.getElementById('count-unord').textContent = unmatchedOrders.length;
+  const uoBody = document.querySelector('#tbl-unord tbody'); uoBody.innerHTML = '';
+  unmatchedOrders.forEach(m => {
+    uoBody.insertAdjacentHTML('beforeend', `<tr><td>${escapeHtml(m.so)}</td><td>${escapeHtml(m.itemCode)}</td><td>${escapeHtml(m.description)}</td><td>${Number(m.qty).toFixed(2)}</td><td>${escapeHtml(m.fileName)}</td></tr>`);
+  });
+  document.getElementById('empty-unord').classList.toggle('hidden', unmatchedOrders.length>0);
+
+  document.getElementById('count-untrav').textContent = unmatchedTickets.length;
+  const utBody = document.querySelector('#tbl-untrav tbody'); utBody.innerHTML = '';
+  unmatchedTickets.forEach(t => {
+    utBody.insertAdjacentHTML('beforeend', `<tr><td>${escapeHtml(t.so)}</td><td>${escapeHtml(t.itemCode)}</td><td>${escapeHtml(t.description)}</td><td>${escapeHtml(t.travelerNo)}</td><td>${escapeHtml(t.fileName)}</td></tr>`);
+  });
+  document.getElementById('empty-untrav').classList.toggle('hidden', unmatchedTickets.length>0);
+
+  const unrecCard = document.getElementById('unrecognized-card');
+  if(unrecognized.length){
+    unrecCard.classList.remove('hidden');
+    document.getElementById('count-unrec').textContent = unrecognized.length;
+    const urBody = document.querySelector('#tbl-unrec tbody'); urBody.innerHTML = '';
+    unrecognized.forEach(u => {
+      urBody.insertAdjacentHTML('beforeend', `<tr><td>${escapeHtml(u.fileName)}</td><td>${u.page}</td></tr>`);
+    });
+  } else {
+    unrecCard.classList.add('hidden');
+  }
+}
+
+// ── History ──────────────────────────────────────────────────────────────
+function debouncedHistorySearch(){
+  clearTimeout(historyTimer);
+  historyTimer = setTimeout(() => loadHistory(document.getElementById('history-search').value), 300);
+}
+
+async function loadHistory(q){
+  q = (q||'').trim();
+  let url = `${SUPA_URL}/rest/v1/cus_traveler_matches?order=matched_at.desc&limit=200`;
+  if(q){
+    const esc = q.replace(/[,()]/g,'');
+    url += `&or=(so.ilike.*${encodeURIComponent(esc)}*,item_code.ilike.*${encodeURIComponent(esc)}*,traveler_no.ilike.*${encodeURIComponent(esc)}*)`;
+  }
+  try{
+    const r = await fetch(url, {headers:H()});
+    const rows = await r.json();
+    const body = document.querySelector('#tbl-history tbody'); body.innerHTML = '';
+    (rows||[]).forEach(row => {
+      const when = row.matched_at ? new Date(row.matched_at).toLocaleString() : '';
+      body.insertAdjacentHTML('beforeend', `<tr><td>${escapeHtml(row.so)}</td><td>${escapeHtml(row.item_code)}</td><td>${escapeHtml(row.description)}</td><td>${row.qty!=null?Number(row.qty).toFixed(2):''}</td><td>${escapeHtml(row.prod_line)}</td><td>${escapeHtml(row.traveler_no)}</td><td>${escapeHtml(row.matched_by)}</td><td>${escapeHtml(when)}</td></tr>`);
+    });
+    document.getElementById('empty-history').classList.toggle('hidden', (rows||[]).length>0);
+  }catch(e){}
+}
+</script>
+</body>
+</html>
