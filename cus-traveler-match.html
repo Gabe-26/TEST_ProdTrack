@@ -812,8 +812,14 @@ function parseOrderPDF(pages, fileName){
     }
   }
   flush();
-  const cusItems = items.filter(it=>/-CUS$/i.test(it.itemCode));
-  return {so, allItems:items, cusItems, skippedCount: items.length - cusItems.length, fileName};
+  // Every item on the sheet is a match candidate — there's no code pattern
+  // that reliably predicts whether Sage already assigned it a traveler.
+  // Real orders have shown non-"-CUS" codes (WNC4CBR-2, WIL4-3, etc.) also
+  // needing a manually created Work Ticket Traveler, so filtering to just
+  // "-CUS$" silently dropped those from the match pool entirely. An item
+  // with no matching ticket simply stays unmatched — that's the expected,
+  // common case for ordinary catalog items, not an error.
+  return {so, allItems:items, cusItems: items, fileName};
 }
 
 // ── Work Ticket Traveler PDF parsing ──────────────────────────────────────
