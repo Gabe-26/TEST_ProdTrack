@@ -513,6 +513,66 @@ function onUbExtraFilesChosen(dept, input){
     ubExtraFiles[dept].length ? ubExtraFiles[dept].map(f=>f.name).join(', ') : 'No extra files';
 }
 
+// Compresses an image extra file before upload — same technique and same
+// settings as ProdTrack's own photo upload (resize to maxWidth/maxHeight,
+// re-encode as JPEG, drop quality once more if still over the size cap).
+// Only ever called on image/* files. CAD files pass through unchanged —
+// there's no safe way to shrink those client-side without a much heavier
+// dependency, and a compressed CAD file couldn't be opened directly from
+// the stored link anymore. PDFs get their own, more limited pass below.
+function compressExtraImage(file, maxSizeKB=800, maxWidth=1920, maxHeight=1920){
+  return new Promise((resolve)=>{
+    if(file.size <= maxSizeKB * 1024){ resolve(file); return; }
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = ()=>{
+      URL.revokeObjectURL(url);
+      let w=img.width, h=img.height;
+      if(w>maxWidth||h>maxHeight){
+        const ratio=Math.min(maxWidth/w, maxHeight/h);
+        w=Math.round(w*ratio); h=Math.round(h*ratio);
+      }
+      const canvas=document.createElement('canvas');
+      canvas.width=w; canvas.height=h;
+      const ctx=canvas.getContext('2d');
+      ctx.drawImage(img,0,0,w,h);
+      canvas.toBlob(blob=>{
+        if(blob && blob.size <= maxSizeKB*1024){
+          resolve(new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), {type:'image/jpeg'}));
+        } else {
+          canvas.toBlob(blob2=>{
+            resolve(new File([blob2||blob], file.name.replace(/\.[^.]+$/, '.jpg'), {type:'image/jpeg'}));
+          },'image/jpeg', 0.65);
+        }
+      },'image/jpeg', 0.82);
+    };
+    img.onerror = ()=>{ URL.revokeObjectURL(url); resolve(file); };
+    img.src=url;
+  });
+}
+
+// Best-effort PDF shrink: reload through pdf-lib (already a dependency of
+// this file) and re-save with object streams enabled. This is lossless —
+// no re-rendering, no downsampled images — so it only helps on PDFs with
+// duplicate/unused internal objects and won't meaningfully shrink a
+// scanned or image-heavy spec sheet. A real reduction there would need a
+// much heavier library (e.g. Ghostscript compiled to run in the browser),
+// which is too big a dependency to add for this alone without asking
+// first (Critical Rule 14). Falls back to the original file untouched if
+// pdf-lib can't parse it (encrypted, corrupt, etc.) or the result isn't
+// actually smaller.
+async function compressExtraPdf(file){
+  try{
+    const buf = await file.arrayBuffer();
+    const doc = await PDFLib.PDFDocument.load(buf);
+    const bytes = await doc.save({useObjectStreams:true});
+    if(bytes.length >= buf.byteLength) return file;
+    return new File([bytes], file.name, {type:'application/pdf'});
+  } catch(e){
+    return file;
+  }
+}
+
 document.addEventListener('keydown', e => { if(e.key==='Escape') closeUploadBatchModal(); });
 
 async function confirmUploadBatch(){
@@ -551,7 +611,9 @@ async function confirmUploadBatch(){
 
       const files = ubExtraFiles[dept] || [];
       const extraFiles = [];
-      for(const f of files){
+      for(let f of files){
+        if(f.type && f.type.startsWith('image/')) f = await compressExtraImage(f);
+        else if(f.type === 'application/pdf' || /\.pdf$/i.test(f.name)) f = await compressExtraPdf(f);
         const path = `${dept}/extra/${Date.now()}_${Math.random().toString(36).slice(2)}_${f.name}`;
         const buf = await f.arrayBuffer();
         const r = await fetch(`${SUPA_URL}/storage/v1/object/${BATCH_BUCKET}/${path}`,{
