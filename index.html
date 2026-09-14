@@ -2792,17 +2792,20 @@ function renderInboxDetail(batchId){
     `;
     return;
   }
-  const soRows = entries.map(e=>{
-    const tags = [];
-    if(e.see_pic) tags.push('<span style="color:var(--blue);font-weight:800">** See Pic **</span>');
-    if(e.hot) tags.push('<span style="color:var(--red);font-weight:800">** HOT **</span>');
-    return `<div style="display:flex;gap:40px;align-items:baseline;font-family:var(--mono);font-size:15px;color:var(--text2);padding:6px 0;border-bottom:1px solid var(--border)">
-      <span style="color:var(--text);font-weight:800">SO ${escapeHtml(e.so)}</span>
-      <span style="font-weight:800">${escapeHtml(formatTravelerRanges(e.travelers))}</span>
-      ${e.ship_date?`<span style="color:var(--text3);font-weight:800">Ship ${escapeHtml(e.ship_date)}</span>`:''}
-      ${tags.join(' ')}
-    </div>`;
-  }).join('');
+  const rowCellStyle = 'padding:6px 40px 6px 0;border-bottom:1px solid var(--border);white-space:nowrap;';
+  const soRows = `<div style="display:grid;grid-template-columns:auto auto auto 1fr;align-items:baseline;font-family:var(--mono);font-size:15px;color:var(--text2)">
+    ${entries.map(e=>{
+      const tags = [];
+      if(e.see_pic) tags.push('<span style="color:var(--blue);font-weight:800">** See Pic **</span>');
+      if(e.hot) tags.push('<span style="color:var(--red);font-weight:800">** HOT **</span>');
+      return `<div style="display:contents">
+        <span style="${rowCellStyle}color:var(--text);font-weight:800">SO ${escapeHtml(e.so)}</span>
+        <span style="${rowCellStyle}font-weight:800">${escapeHtml(formatTravelerRanges(e.travelers))}</span>
+        <span style="${rowCellStyle}color:var(--text3);font-weight:800">${e.ship_date?'Ship '+escapeHtml(e.ship_date):''}</span>
+        <span style="padding:6px 0;border-bottom:1px solid var(--border)">${tags.join(' ')}</span>
+      </div>`;
+    }).join('')}
+  </div>`;
   const attachChips = [
     b.pdf_url ? inboxAttachmentChip(b.pdf_url, 'Stamped Order PDF', {accent:true, subtitle:'PDF Document', iconLabel:'PDF'}) : '',
     ...(b.extra_files||[]).map(f => inboxAttachmentChip(f.url, f.name))
