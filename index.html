@@ -521,6 +521,7 @@ thead th{position:sticky;top:0;z-index:2;background:var(--surface);border-bottom
       <div style="display:flex;gap:8px">
         <button class="btn primary" id="pl-dept-wood-btn" onclick="setPrintLabelDept('wood')">Wood</button>
         <button class="btn" id="pl-dept-gate-btn" onclick="setPrintLabelDept('gate')">Gate</button>
+        <button class="btn" id="pl-dept-gear-btn" onclick="setPrintLabelDept('gear')">Gear</button>
       </div>
     </div>
     <div style="display:flex;gap:20px;align-items:flex-start">
@@ -2146,6 +2147,7 @@ function render(){
     const isMgr = currentProfile?.role === 'manager';
     const hasWoodTravelers = orders.some(o=>o.so===so && o.department==='wood');
     const hasGateTravelers = orders.some(o=>o.so===so && o.department==='gate');
+    const hasGearTravelers = orders.some(o=>o.so===so && o.department==='gear');
     // Approval status for SO
     const approvedTravelers = travelers.filter(o => approvals[o.traveler]);
     const allApproved = travelers.length > 0 && approvedTravelers.length === travelers.length;
@@ -2181,7 +2183,7 @@ function render(){
       <td><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
         ${picTag}
         ${isMgr && !allApproved ? `<button class="approve-btn" onclick="event.stopPropagation();confirmColorThenApproveAll('${so}')" style="font-size:10px;padding:3px 8px">Approve all</button>` : ''}
-        ${isMgr && (hasWoodTravelers||hasGateTravelers) ? `<button class="btn print-label-btn" onclick="event.stopPropagation();openPrintLabelModal('${so}')" style="font-size:10px;padding:3px 8px">Print label</button>` : ''}
+        ${isMgr && (hasWoodTravelers||hasGateTravelers||hasGearTravelers) ? `<button class="btn print-label-btn" onclick="event.stopPropagation();openPrintLabelModal('${so}')" style="font-size:10px;padding:3px 8px">Print label</button>` : ''}
       </div></td>
     </tr>`;
  
@@ -3520,35 +3522,40 @@ let labelDeptTravelers = [];
 let labelSkids = []; // [{ items: [{traveler,item,desc,qty}] }]
 let labelEditingItems = new Set(); // keys "si-ii" currently in wording-edit mode
 const LABEL_DEPT_CONFIG = {
-  wood: { cap: 20, allowCombine: true, widthIn: 4, heightIn: 6, previewScale: 1,   printScale: 1,   previewItemScale: 1,   printItemScale: 1,   topReducePx: 5,  lineGapPx: 6 },
-  gate: { cap: 1,  allowCombine: false, widthIn: 4, heightIn: 3, previewScale: 0.5, printScale: 0.65, previewItemScale: 0.5, printItemScale: 0.5, topReducePx: 18, lineGapPx: 2 }
+  wood: { cap: 20, allowCombine: true, widthIn: 4, heightIn: 6, previewScale: 1,   printScale: 1,   previewItemScale: 1,   printItemScale: 1,   topReducePx: 5,  lineGapPx: 6, colorTagStyle: 'swatch' },
+  gate: { cap: 1,  allowCombine: false, widthIn: 4, heightIn: 3, previewScale: 0.5, printScale: 0.65, previewItemScale: 0.5, printItemScale: 0.5, topReducePx: 18, lineGapPx: 2, colorTagStyle: 'text' },
+  gear: { cap: 14, allowCombine: true, widthIn: 4, heightIn: 6, previewScale: 1,   printScale: 1,   previewItemScale: 1,   printItemScale: 1,   topReducePx: 5,  lineGapPx: 6, colorTagStyle: 'text' }
 };
 
 function openPrintLabelModal(so){
   if(currentProfile?.role!=='manager') return;
-  const woodTravelers = orders.filter(o=>o.so===so && o.department==='wood');
-  const gateTravelers = orders.filter(o=>o.so===so && o.department==='gate');
-  if(!woodTravelers.length && !gateTravelers.length){ toast('No Wood/Gate travelers', 'This SO has no Wood or Gate department travelers.', 'amber'); return; }
+  const travelersByDept = {
+    wood: orders.filter(o=>o.so===so && o.department==='wood'),
+    gate: orders.filter(o=>o.so===so && o.department==='gate'),
+    gear: orders.filter(o=>o.so===so && o.department==='gear')
+  };
+  const availableDepts = Object.keys(travelersByDept).filter(d=>travelersByDept[d].length);
+  if(!availableDepts.length){ toast('No Wood/Gate/Gear travelers', 'This SO has no Wood, Gate, or Gear department travelers.', 'amber'); return; }
   labelSO = so;
-  window._plWoodTravelers = woodTravelers;
-  window._plGateTravelers = gateTravelers;
+  window._plTravelersByDept = travelersByDept;
   const picker = document.getElementById('pl-dept-picker');
-  if(woodTravelers.length && gateTravelers.length){
-    picker.style.display = '';
-  } else {
-    picker.style.display = 'none';
-  }
+  ['wood','gate','gear'].forEach(d=>{
+    const btn = document.getElementById('pl-dept-'+d+'-btn');
+    if(btn) btn.style.display = travelersByDept[d].length ? '' : 'none';
+  });
+  picker.style.display = availableDepts.length > 1 ? '' : 'none';
   document.getElementById('pl-so-num').textContent = so;
   document.getElementById('pl-cust').value = '';
   document.getElementById('pl-po').value = '';
-  setPrintLabelDept(woodTravelers.length ? 'wood' : 'gate');
+  setPrintLabelDept(availableDepts[0]);
   document.getElementById('print-label-modal').classList.add('open');
 }
 function setPrintLabelDept(dept){
   labelDept = dept;
-  labelDeptTravelers = dept==='wood' ? window._plWoodTravelers : window._plGateTravelers;
-  document.getElementById('pl-dept-wood-btn')?.classList.toggle('primary', dept==='wood');
-  document.getElementById('pl-dept-gate-btn')?.classList.toggle('primary', dept==='gate');
+  labelDeptTravelers = (window._plTravelersByDept && window._plTravelersByDept[dept]) || [];
+  ['wood','gate','gear'].forEach(d=>{
+    document.getElementById('pl-dept-'+d+'-btn')?.classList.toggle('primary', dept===d);
+  });
   labelEditingItems = new Set();
   const custMatch = customerNameMap.get((labelDeptTravelers[0]?.customer||'').trim().toUpperCase());
   document.getElementById('pl-cust').value = custMatch || '';
@@ -3673,7 +3680,7 @@ function renderPrintLabelPreview(){
       <div class="lbl-divider"></div>
       ${itemsHtml}
       <div class="lbl-bottom-row">
-        ${labelDept==='gate'
+        ${LABEL_DEPT_CONFIG[labelDept].colorTagStyle==='text'
           ? `<div class="lbl-color-tag lbl-color-tag-text" style="color:${viaColorHex(t0.via, t0.location)}">${viaColorWord(t0.via, t0.location)}</div>`
           : `<div class="lbl-color-tag" style="background:${viaColorHex(t0.via, t0.location)}"></div>`}
         <div class="lbl-page">${i+1} of ${total}</div>
@@ -3763,7 +3770,7 @@ function generateLabelDocument(so, cust, po, skids){
       <div class="lbl-divider"></div>
       ${itemsHtml}
       <div class="lbl-bottom-row">
-        ${labelDept==='gate'
+        ${LABEL_DEPT_CONFIG[labelDept].colorTagStyle==='text'
           ? `<div class="lbl-color-tag lbl-color-tag-text" style="color:${viaColorHex(t0.via, t0.location)}">${viaColorWord(t0.via, t0.location)}</div>`
           : `<div class="lbl-color-tag" style="background:${viaColorHex(t0.via, t0.location)}"></div>`}
         <div class="lbl-page">${i+1} of ${total}</div>
