@@ -169,12 +169,6 @@ td{font-family:var(--mono)}
         </div>
 
         <div class="card">
-          <div class="section-title">Unmatched order lines <span class="badge badge-warn" id="count-unord"></span></div>
-          <div class="section-count">CUS lines from the order PDFs with no matching traveler ticket uploaded</div>
-          <table id="tbl-unord"><thead><tr><th>SO</th><th>Item Code</th><th>Description</th><th>Qty</th><th>Source file</th></tr></thead><tbody></tbody></table>
-          <div class="empty-note hidden" id="empty-unord">None — every CUS line found a match.</div>
-        </div>
-        <div class="card">
           <div class="section-title">Unmatched traveler tickets <span class="badge badge-warn" id="count-untrav"></span></div>
           <div class="section-count">Traveler tickets with no matching order line uploaded</div>
           <table id="tbl-untrav"><thead><tr><th>SO</th><th>Item Code</th><th>Description</th><th>Traveler #</th><th>Source file</th></tr></thead><tbody></tbody></table>
@@ -1187,13 +1181,6 @@ function renderResults(matched, unmatchedOrders, unmatchedTickets, unrecognized)
   if(unclassified.length){
     boxesWrap.insertAdjacentHTML('beforeend', boxHtml('Unclassified (unrecognized prod line)', '#888', unclassified, 'unclassified'));
   }
-
-  document.getElementById('count-unord').textContent = unmatchedOrders.length;
-  const uoBody = document.querySelector('#tbl-unord tbody'); uoBody.innerHTML = '';
-  unmatchedOrders.forEach(m => {
-    uoBody.insertAdjacentHTML('beforeend', `<tr><td>${escapeHtml(m.so)}</td><td>${escapeHtml(m.itemCode)}</td><td>${escapeHtml(m.description)}</td><td>${Number(m.qty).toFixed(2)}</td><td>${escapeHtml(m.fileName)}</td></tr>`);
-  });
-  document.getElementById('empty-unord').classList.toggle('hidden', unmatchedOrders.length>0);
 
   document.getElementById('count-untrav').textContent = unmatchedTickets.length;
   const utBody = document.querySelector('#tbl-untrav tbody'); utBody.innerHTML = '';
