@@ -443,7 +443,7 @@ thead th{position:sticky;top:0;z-index:2;background:var(--surface);border-bottom
 #orders-summary .sum-item.clickable:hover{background:var(--surface2)}
 #orders-summary .sum-item.active{background:var(--surface2);box-shadow:inset 0 0 0 1px var(--accent)}
 #category-breakdown{margin:0 14px 10px;display:flex;flex-direction:column;gap:8px}
-#category-breakdown .cb-block{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:10px 14px}
+#category-breakdown .cb-block{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:6px 14px}
 #category-breakdown .cb-label{font-size:12px;font-weight:700;font-family:var(--mono);color:var(--text3);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:8px;text-align:center;cursor:pointer;user-select:none}
 #category-breakdown .cb-tiles{display:flex;justify-content:space-between;flex-wrap:wrap;gap:14px}
 #category-breakdown .sum-item{min-width:80px}
@@ -2468,7 +2468,7 @@ function renderCategoryBreakdown(groups){
   const blocks = [];
   if(Object.values(woodTotals).some(v=>v>0)){
     const c = collapsedBreakdownDepts.has('wood');
-    blocks.push(`<div class="cb-block"><div class="cb-label" onclick="toggleBreakdownDept('wood')">${c?'▸':'▾'} Wood</div>${c?'':`<div class="cb-tiles">
+    blocks.push(`<div class="cb-block"><div class="cb-label"${c?' style="margin-bottom:0"':''} onclick="toggleBreakdownDept('wood')">${c?'▸':'▾'} Wood</div>${c?'':`<div class="cb-tiles">
     <div class="sum-item"><div class="sum-label">Sections</div><div class="sum-val green">${woodTotals.section}</div></div>
     <div class="sum-item"><div class="sum-label">Gates</div><div class="sum-val">${woodTotals.gate}</div></div>
     <div class="sum-item"><div class="sum-label">Posts</div><div class="sum-val amber">${woodTotals.post}</div></div>
@@ -2478,7 +2478,7 @@ function renderCategoryBreakdown(groups){
   }
   if(Object.values(gearTotals).some(v=>v>0)){
     const c = collapsedBreakdownDepts.has('gear');
-    blocks.push(`<div class="cb-block"><div class="cb-label" onclick="toggleBreakdownDept('gear')">${c?'▸':'▾'} Gear</div>${c?'':`<div class="cb-tiles">
+    blocks.push(`<div class="cb-block"><div class="cb-label"${c?' style="margin-bottom:0"':''} onclick="toggleBreakdownDept('gear')">${c?'▸':'▾'} Gear</div>${c?'':`<div class="cb-tiles">
     <div class="sum-item"><div class="sum-label">Sections</div><div class="sum-val green">${gearTotals.section}</div></div>
     <div class="sum-item"><div class="sum-label">Posts</div><div class="sum-val amber">${gearTotals.post}</div></div>
     <div class="sum-item"><div class="sum-label">Profiles</div><div class="sum-val blue">${gearTotals.profile}</div></div>
@@ -2492,7 +2492,7 @@ function renderCategoryBreakdown(groups){
   }
   if(Object.values(gateTotals).some(v=>v>0)){
     const c = collapsedBreakdownDepts.has('gate');
-    blocks.push(`<div class="cb-block"><div class="cb-label" onclick="toggleBreakdownDept('gate')">${c?'▸':'▾'} Gate</div>${c?'':`<div class="cb-tiles">
+    blocks.push(`<div class="cb-block"><div class="cb-label"${c?' style="margin-bottom:0"':''} onclick="toggleBreakdownDept('gate')">${c?'▸':'▾'} Gate</div>${c?'':`<div class="cb-tiles">
     <div class="sum-item"><div class="sum-label">Gates</div><div class="sum-val yellow">${gateTotals.gate}</div></div>
     <div class="sum-item"><div class="sum-label">Misc</div><div class="sum-val">${gateTotals.misc}</div></div>
   </div>`}</div>`);
