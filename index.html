@@ -444,8 +444,8 @@ thead th{position:sticky;top:0;z-index:2;background:var(--surface);border-bottom
 #orders-summary .sum-item.active{background:var(--surface2);box-shadow:inset 0 0 0 1px var(--accent)}
 #category-breakdown{margin:0 14px 10px;display:flex;flex-direction:column;gap:8px}
 #category-breakdown .cb-block{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:10px 14px}
-#category-breakdown .cb-label{font-size:10px;font-family:var(--mono);color:var(--text3);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:8px}
-#category-breakdown .cb-tiles{display:flex;flex-wrap:wrap;gap:14px}
+#category-breakdown .cb-label{font-size:12px;font-weight:700;font-family:var(--mono);color:var(--text3);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:8px}
+#category-breakdown .cb-tiles{display:flex;justify-content:space-between;flex-wrap:wrap;gap:14px}
 #category-breakdown .sum-item{min-width:80px}
 #category-breakdown .sum-label{font-size:9px;font-family:var(--mono);color:var(--text3);letter-spacing:0.06em;text-transform:uppercase;margin-bottom:2px}
 #category-breakdown .sum-val{font-size:16px;font-weight:700;letter-spacing:-0.02em;font-family:var(--mono);color:var(--text)}
@@ -964,6 +964,10 @@ thead th{position:sticky;top:0;z-index:2;background:var(--surface);border-bottom
           <button class="xbtn" id="xbtn" onclick="toggleExpandAll()">
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
             Expand all
+          </button>
+          <button class="xbtn" id="cb-toggle-btn" onclick="toggleCategoryBreakdown()">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+            Hide breakdown
           </button>
         </div>
         <div id="last-csv-line" style="display:none;margin:0 14px 10px;padding:6px 12px;font-size:14px;font-weight:600;color:var(--text);text-align:center;border:3px solid var(--accent)"></div>
@@ -2423,6 +2427,19 @@ function setSummaryPhotoFilter(mode){
   summaryPhotoFilter = (mode!==null && summaryPhotoFilter===mode) ? null : mode;
   render();
 }
+let categoryBreakdownHidden = false; // session-only — resets on reload, not persisted
+function toggleCategoryBreakdown(){
+  categoryBreakdownHidden = !categoryBreakdownHidden;
+  const btn = document.getElementById('cb-toggle-btn');
+  if(categoryBreakdownHidden){
+    btn.innerHTML = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 15 12 9 18 15"/></svg> Show breakdown';
+    btn.classList.add('on');
+  } else {
+    btn.innerHTML = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg> Hide breakdown';
+    btn.classList.remove('on');
+  }
+  render();
+}
 // Live in-app version of the Print Report's Wood/Gear/Gate item-type breakdowns — shown
 // under the orders summary tiles on Tomorrow's/All orders. Same base data as the summary
 // tiles (respects search/ship-via/ship-date/department filters, excludes flagged
@@ -2430,7 +2447,7 @@ function setSummaryPhotoFilter(mode){
 function renderCategoryBreakdown(groups){
   const wrap = document.getElementById('category-breakdown');
   if(!wrap) return;
-  if(!['tomorrow','all'].includes(activeView)){ wrap.style.display='none'; return; }
+  if(!['tomorrow','all'].includes(activeView) || categoryBreakdownHidden){ wrap.style.display='none'; return; }
   const activeGroups = groups.filter(g=>!g.travelers[0]?.flaggedMissingAt);
   const woodTotals = {section:0, gate:0, post:0, arb_perg:0, misc:0};
   const gearTotals = {section:0, post:0, profile:0, lattice_profile:0, topper:0, bend:0, arb_perg:0, post_and_rail:0, misc:0};
