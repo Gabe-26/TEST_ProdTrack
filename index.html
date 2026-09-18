@@ -444,7 +444,7 @@ thead th{position:sticky;top:0;z-index:2;background:var(--surface);border-bottom
 #orders-summary .sum-item.active{background:var(--surface2);box-shadow:inset 0 0 0 1px var(--accent)}
 #category-breakdown{margin:0 14px 10px;display:flex;flex-direction:column;gap:8px}
 #category-breakdown .cb-block{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:10px 14px}
-#category-breakdown .cb-label{font-size:12px;font-weight:700;font-family:var(--mono);color:var(--text3);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:8px}
+#category-breakdown .cb-label{font-size:12px;font-weight:700;font-family:var(--mono);color:var(--text3);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:8px;text-align:center;cursor:pointer;user-select:none}
 #category-breakdown .cb-tiles{display:flex;justify-content:space-between;flex-wrap:wrap;gap:14px}
 #category-breakdown .sum-item{min-width:80px}
 #category-breakdown .sum-label{font-size:9px;font-family:var(--mono);color:var(--text3);letter-spacing:0.06em;text-transform:uppercase;margin-bottom:2px}
@@ -2444,6 +2444,11 @@ function toggleCategoryBreakdown(){
 // under the orders summary tiles on Tomorrow's/All orders. Same base data as the summary
 // tiles (respects search/ship-via/ship-date/department filters, excludes flagged
 // "possibly completed" SOs), just aggregated as one row per department, not per day.
+let collapsedBreakdownDepts = new Set(); // session-only — which department boxes are individually collapsed
+function toggleBreakdownDept(dept){
+  if(collapsedBreakdownDepts.has(dept)) collapsedBreakdownDepts.delete(dept); else collapsedBreakdownDepts.add(dept);
+  render();
+}
 function renderCategoryBreakdown(groups){
   const wrap = document.getElementById('category-breakdown');
   if(!wrap) return;
@@ -2461,14 +2466,19 @@ function renderCategoryBreakdown(groups){
     });
   });
   const blocks = [];
-  if(Object.values(woodTotals).some(v=>v>0)) blocks.push(`<div class="cb-block"><div class="cb-label">Wood</div><div class="cb-tiles">
+  if(Object.values(woodTotals).some(v=>v>0)){
+    const c = collapsedBreakdownDepts.has('wood');
+    blocks.push(`<div class="cb-block"><div class="cb-label" onclick="toggleBreakdownDept('wood')">${c?'▸':'▾'} Wood</div>${c?'':`<div class="cb-tiles">
     <div class="sum-item"><div class="sum-label">Sections</div><div class="sum-val green">${woodTotals.section}</div></div>
     <div class="sum-item"><div class="sum-label">Gates</div><div class="sum-val">${woodTotals.gate}</div></div>
     <div class="sum-item"><div class="sum-label">Posts</div><div class="sum-val amber">${woodTotals.post}</div></div>
     <div class="sum-item"><div class="sum-label">Arb/Perg</div><div class="sum-val purple">${woodTotals.arb_perg}</div></div>
     <div class="sum-item"><div class="sum-label">Misc</div><div class="sum-val">${woodTotals.misc}</div></div>
-  </div></div>`);
-  if(Object.values(gearTotals).some(v=>v>0)) blocks.push(`<div class="cb-block"><div class="cb-label">Gear</div><div class="cb-tiles">
+  </div>`}</div>`);
+  }
+  if(Object.values(gearTotals).some(v=>v>0)){
+    const c = collapsedBreakdownDepts.has('gear');
+    blocks.push(`<div class="cb-block"><div class="cb-label" onclick="toggleBreakdownDept('gear')">${c?'▸':'▾'} Gear</div>${c?'':`<div class="cb-tiles">
     <div class="sum-item"><div class="sum-label">Sections</div><div class="sum-val green">${gearTotals.section}</div></div>
     <div class="sum-item"><div class="sum-label">Posts</div><div class="sum-val amber">${gearTotals.post}</div></div>
     <div class="sum-item"><div class="sum-label">Profiles</div><div class="sum-val blue">${gearTotals.profile}</div></div>
@@ -2478,11 +2488,15 @@ function renderCategoryBreakdown(groups){
     <div class="sum-item"><div class="sum-label">Arb/Perg</div><div class="sum-val purple">${gearTotals.arb_perg}</div></div>
     <div class="sum-item"><div class="sum-label">Post &amp; Rail</div><div class="sum-val orange">${gearTotals.post_and_rail}</div></div>
     <div class="sum-item"><div class="sum-label">Misc</div><div class="sum-val">${gearTotals.misc}</div></div>
-  </div></div>`);
-  if(Object.values(gateTotals).some(v=>v>0)) blocks.push(`<div class="cb-block"><div class="cb-label">Gate</div><div class="cb-tiles">
+  </div>`}</div>`);
+  }
+  if(Object.values(gateTotals).some(v=>v>0)){
+    const c = collapsedBreakdownDepts.has('gate');
+    blocks.push(`<div class="cb-block"><div class="cb-label" onclick="toggleBreakdownDept('gate')">${c?'▸':'▾'} Gate</div>${c?'':`<div class="cb-tiles">
     <div class="sum-item"><div class="sum-label">Gates</div><div class="sum-val yellow">${gateTotals.gate}</div></div>
     <div class="sum-item"><div class="sum-label">Misc</div><div class="sum-val">${gateTotals.misc}</div></div>
-  </div></div>`);
+  </div>`}</div>`);
+  }
   if(!blocks.length){ wrap.style.display='none'; return; }
   wrap.style.display='';
   wrap.innerHTML = blocks.join('');
