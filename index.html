@@ -433,7 +433,7 @@ thead th{position:sticky;top:0;z-index:2;background:var(--surface);border-bottom
 #so-modal-body .tr-row td{display:block!important;padding:2px 0!important;text-align:left!important}
 #so-modal-body .tr-row td[data-label]::before{content:attr(data-label);display:inline-block;min-width:36px;color:var(--text3);font-size:10px;text-transform:uppercase;letter-spacing:0.3px;margin-right:6px;font-family:var(--sans);font-weight:600}
 #orders-summary{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--border);border:1px solid var(--border);margin:0 14px 10px}
-#orders-summary .sum-item{background:var(--surface);padding:4px 16px}
+#orders-summary .sum-item{background:var(--surface);padding:4px 16px;text-align:center}
 #orders-summary .sum-label{font-size:10px;font-family:var(--mono);color:var(--text3);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:2px}
 #orders-summary .sum-val{font-size:22px;font-weight:700;letter-spacing:-0.03em;font-family:var(--mono);color:var(--text)}
 #orders-summary .sum-val.amber{color:var(--amber)}
@@ -446,7 +446,9 @@ thead th{position:sticky;top:0;z-index:2;background:var(--surface);border-bottom
 #category-breakdown .cb-block{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:6px 14px}
 #category-breakdown .cb-label{font-size:12px;font-weight:700;font-family:var(--mono);color:var(--text3);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:8px;text-align:center;cursor:pointer;user-select:none}
 #category-breakdown .cb-tiles{display:flex;justify-content:space-between;flex-wrap:wrap;gap:14px}
-#category-breakdown .sum-item{min-width:80px}
+#category-breakdown .sum-item{min-width:80px;text-align:center;padding:0 14px;border-right:1px solid var(--border)}
+#category-breakdown .sum-item:last-child{border-right:none;padding-right:0}
+#category-breakdown .sum-item:first-child{padding-left:0}
 #category-breakdown .sum-label{font-size:9px;font-family:var(--mono);color:var(--text3);letter-spacing:0.06em;text-transform:uppercase;margin-bottom:2px}
 #category-breakdown .sum-val{font-size:16px;font-weight:700;letter-spacing:-0.02em;font-family:var(--mono);color:var(--text)}
 #category-breakdown .sum-val.green{color:var(--green)}
@@ -468,7 +470,7 @@ thead th{position:sticky;top:0;z-index:2;background:var(--surface);border-bottom
   #category-breakdown .cb-block{padding:3px 8px}
   #category-breakdown .cb-label{font-size:10px;margin-bottom:4px}
   #category-breakdown .cb-tiles{gap:8px}
-  #category-breakdown .sum-item{min-width:0}
+  #category-breakdown .sum-item{min-width:0;padding:0 6px}
   #category-breakdown .sum-label{font-size:8px}
   #category-breakdown .sum-val{font-size:13px}
 }
@@ -717,7 +719,7 @@ thead th{position:sticky;top:0;z-index:2;background:var(--surface);border-bottom
       Gear codes
       <button class="modal-close" onclick="closeGearCodesModal()">✕</button>
     </div>
-    <div style="font-size:12px;color:var(--text3);margin-bottom:14px">Classify each Gear item code as Section, Post, Profile, Lattice Profile, Topper, Bend, Arb/Perg, Post &amp; Rail, or Gates (for codes that are actually Gate Shop department products, not Gear). Re-uploading the code list only adds/updates codes — it never resets a classification you've already set.</div>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:14px">Classify each Gear item code as Section, Post, Profile, Lat-Profile, Topper, Bend, Arb/Perg, Post &amp; Rail, or Gates (for codes that are actually Gate Shop department products, not Gear). Re-uploading the code list only adds/updates codes — it never resets a classification you've already set.</div>
     <div class="modal-field">
       <div class="modal-label">Gear codes CSV (needs "Item Code" and "Description" columns)</div>
       <input type="file" accept=".csv" id="gc-file-input" onchange="handleGearCodesCSVUpload(this.files[0])">
@@ -741,7 +743,7 @@ thead th{position:sticky;top:0;z-index:2;background:var(--surface);border-bottom
       <button class="wc-type-btn gc-section" onclick="applyTypeToSelectedGear('section')">Section</button>
       <button class="wc-type-btn gc-post" onclick="applyTypeToSelectedGear('post')">Post</button>
       <button class="wc-type-btn gc-profile" onclick="applyTypeToSelectedGear('profile')">Profile</button>
-      <button class="wc-type-btn gc-latticeprofile" onclick="applyTypeToSelectedGear('lattice_profile')">Lattice Profile</button>
+      <button class="wc-type-btn gc-latticeprofile" onclick="applyTypeToSelectedGear('lattice_profile')">Lat-Profile</button>
       <button class="wc-type-btn gc-topper" onclick="applyTypeToSelectedGear('topper')">Topper</button>
       <button class="wc-type-btn gc-bend" onclick="applyTypeToSelectedGear('bend')">Bend</button>
       <button class="wc-type-btn gc-arbperg" onclick="applyTypeToSelectedGear('arb_perg')">Arb/Perg</button>
@@ -2489,7 +2491,7 @@ function renderCategoryBreakdown(groups){
     <div class="sum-item"><div class="sum-label">Sections</div><div class="sum-val green">${gearTotals.section}</div></div>
     <div class="sum-item"><div class="sum-label">Posts</div><div class="sum-val amber">${gearTotals.post}</div></div>
     <div class="sum-item"><div class="sum-label">Profiles</div><div class="sum-val blue">${gearTotals.profile}</div></div>
-    <div class="sum-item"><div class="sum-label">Lattice Profiles</div><div class="sum-val pink">${gearTotals.lattice_profile}</div></div>
+    <div class="sum-item"><div class="sum-label">Lat-Profiles</div><div class="sum-val pink">${gearTotals.lattice_profile}</div></div>
     <div class="sum-item"><div class="sum-label">Topper</div><div class="sum-val red">${gearTotals.topper}</div></div>
     <div class="sum-item"><div class="sum-label">Bends</div><div class="sum-val teal">${gearTotals.bend}</div></div>
     <div class="sum-item"><div class="sum-label">Arb/Perg</div><div class="sum-val purple">${gearTotals.arb_perg}</div></div>
@@ -4025,7 +4027,7 @@ ${(() => { let lastWoodDayShown = null; let lastGearDayShown = null; let lastGat
       <div class="sum-item"><div class="sum-label">Sections</div><div class="sum-val green">${c.section}</div></div>
       <div class="sum-item"><div class="sum-label">Posts</div><div class="sum-val amber">${c.post}</div></div>
       <div class="sum-item"><div class="sum-label">Profiles</div><div class="sum-val blue">${c.profile}</div></div>
-      <div class="sum-item"><div class="sum-label">Lattice Profiles</div><div class="sum-val pink">${c.lattice_profile}</div></div>
+      <div class="sum-item"><div class="sum-label">Lat-Profiles</div><div class="sum-val pink">${c.lattice_profile}</div></div>
       <div class="sum-item"><div class="sum-label">Topper</div><div class="sum-val red">${c.topper}</div></div>
       <div class="sum-item"><div class="sum-label">Bends</div><div class="sum-val teal">${c.bend}</div></div>
       <div class="sum-item"><div class="sum-label">Arb/Perg</div><div class="sum-val purple">${c.arb_perg}</div></div>
@@ -4179,7 +4181,7 @@ function setPrintLabelDept(dept){
     statusEl.style.display = 'none';
     if(dept==='gear'){
       // Suggested starting layout for Gear skids (Gabriel's grouping, no qty cap applied here):
-      // Section/Topper/Lattice Profile/Profile/Bend share one skid (this is also the catch-all
+      // Section/Topper/Lat-Profile/Profile/Bend share one skid (this is also the catch-all
       // for anything still unclassified as Misc, or mistakenly tagged Gates); Post/Post & Rail
       // share a second skid; Arb/Perg gets its own skid, kept separate from the other two.
       const GEAR_POST_GROUP = new Set(['post','post_and_rail']);
@@ -4873,7 +4875,7 @@ function renderGearCodesList(){
       <td style="font-family:var(--mono)">${escapeHtml(r.item_code)}</td>
       <td>${escapeHtml(r.description)}</td>
       <td style="font-family:var(--mono);color:var(--text3)">${escapeHtml(r.prod||'')}</td>
-      <td>${typeBtn(r,'section','Section','gc-section')}${typeBtn(r,'post','Post','gc-post')}${typeBtn(r,'profile','Profile','gc-profile')}${typeBtn(r,'lattice_profile','Lattice Profile','gc-latticeprofile')}${typeBtn(r,'topper','Topper','gc-topper')}${typeBtn(r,'bend','Bend','gc-bend')}${typeBtn(r,'arb_perg','Arb/Perg','gc-arbperg')}${typeBtn(r,'post_and_rail','Post &amp; Rail','gc-postandrail')}${typeBtn(r,'gate','Gates','gc-gate')}${typeBtn(r,'misc','Misc','wc-misc')}</td>
+      <td>${typeBtn(r,'section','Section','gc-section')}${typeBtn(r,'post','Post','gc-post')}${typeBtn(r,'profile','Profile','gc-profile')}${typeBtn(r,'lattice_profile','Lat-Profile','gc-latticeprofile')}${typeBtn(r,'topper','Topper','gc-topper')}${typeBtn(r,'bend','Bend','gc-bend')}${typeBtn(r,'arb_perg','Arb/Perg','gc-arbperg')}${typeBtn(r,'post_and_rail','Post &amp; Rail','gc-postandrail')}${typeBtn(r,'gate','Gates','gc-gate')}${typeBtn(r,'misc','Misc','wc-misc')}</td>
     </tr>`).join('');
   document.getElementById('gc-count').textContent = `${list.length} of ${gearCodes.length} codes`;
   document.getElementById('gc-selected-count').textContent = `${selectedGearCodes.size} selected`;
