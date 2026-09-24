@@ -192,6 +192,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--s
   .so-row td:nth-child(4){font-size:12px!important;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .so-row td:nth-child(2){padding-left:12px!important}
   .so-row td:nth-child(3){padding-left:0!important}
+  .so-badges-cell{padding-left:19px!important}
 
   /* Photos tag */
   .so-row .tag{font-size:10px;padding:2px 5px}
@@ -246,6 +247,7 @@ thead th{position:sticky;top:0;z-index:2;background:var(--surface);border-bottom
 .so-row{cursor:pointer;user-select:none}
 .so-row td{padding:14px 14px;border-bottom:1px solid var(--border);vertical-align:middle;transition:background 0.1s;font-size:14px}
 .so-row.no-bb td{border-bottom:none}
+.so-badges-cell{padding-left:34px}
 .so-row:hover td{background:var(--surface2)}
 .so-row.done td{background:rgba(96,208,138,0.04)}
 .so-row.done td:first-child{border-left:3px solid var(--green)}
@@ -2674,7 +2676,7 @@ function render(){
 
     if(approvalFull||flagFull||printedFull){
       html+=`<tr class="so-row so-badges-row ${hasPic?'done':'pending'}" onclick="handleSORowClick('${so}')">
-        <td colspan="6" style="padding:0 12px 8px 34px!important;border-top:none">
+        <td colspan="6" style="padding:0 12px 8px 0;border-top:none" class="so-badges-cell">
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
             ${printedFull}${printedCheck}
             ${approvalFull}${approvalCheck}
