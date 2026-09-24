@@ -255,6 +255,8 @@ thead th{position:sticky;top:0;z-index:2;background:var(--surface);border-bottom
 .so-row.no-bb td{border-bottom:none}
 .so-badges-cell{padding-left:34px}
 .so-row:hover td{background:var(--surface2)}
+.so-row:hover + tr.so-badges-row td{background:var(--surface2)}
+.so-row:has(+ tr.so-badges-row:hover) td{background:var(--surface2)}
 .so-row.done td{background:rgba(96,208,138,0.04)}
 .so-row.done td:first-child{border-left:3px solid var(--green)}
 .so-row.pending td:first-child{border-left:3px solid var(--amber)}
