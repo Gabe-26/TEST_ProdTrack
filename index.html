@@ -255,8 +255,7 @@ thead th{position:sticky;top:0;z-index:2;background:var(--surface);border-bottom
 .so-row.no-bb td{border-bottom:none}
 .so-badges-cell{padding-left:34px}
 .so-row:hover td{background:var(--surface2)}
-.so-row:hover + tr.so-badges-row td{background:var(--surface2)}
-.so-row:has(+ tr.so-badges-row:hover) td{background:var(--surface2)}
+.hovered td{background:var(--surface2)!important}
 .so-row.done td{background:rgba(96,208,138,0.04)}
 .so-row.done td:first-child{border-left:3px solid var(--green)}
 .so-row.pending td:first-child{border-left:3px solid var(--amber)}
@@ -1310,6 +1309,12 @@ function makeDeptPill(d){
 function deptPillsForTravelers(travelers){
   const present = [...new Set((travelers||[]).flatMap(t=>[t.department,t.deptExtra]).filter(Boolean))];
   return present.map(makeDeptPill).join('');
+}
+function linkedHover(so, on){
+  const a = document.getElementById('so-row-'+so);
+  const b = document.getElementById('so-badges-'+so);
+  if(a) a.classList.toggle('hovered', on);
+  if(b) b.classList.toggle('hovered', on);
 }
 function soLabelPrintedBadge(so, mode){
   const depts = ['wood','gate','gear'].filter(d=>labelPrints[so+'|'+d] && activeDepts.has(d));
@@ -2664,7 +2669,7 @@ function render(){
          </td>`
       : `<td><span class="mono" style="color:var(--text);font-size:13px;font-weight:600">${fmtDate(soShipRaw)}</span></td>`;
  
-    html+=`<tr id="so-row-${so}" class="so-row ${hasPic?'done':'pending'}${(approvalFull||flagFull||printedFull)?' no-bb':''}" onclick="handleSORowClick('${so}')">
+    html+=`<tr id="so-row-${so}" class="so-row ${hasPic?'done':'pending'}${(approvalFull||flagFull||printedFull)?' no-bb':''}" onclick="handleSORowClick('${so}')" onmouseenter="linkedHover('${so}',true)" onmouseleave="linkedHover('${so}',false)">
       <td><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
         <span class="chevron${isOpen?' open':''}"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg></span>
         <span class="so-num-text" style="font-family:var(--mono);font-size:13px;font-weight:600;color:var(--text)">${so}</span>
@@ -2683,7 +2688,7 @@ function render(){
     </tr>`;
 
     if(approvalFull||flagFull||printedFull){
-      html+=`<tr class="so-row so-badges-row ${hasPic?'done':'pending'}" onclick="handleSORowClick('${so}')">
+      html+=`<tr id="so-badges-${so}" class="so-row so-badges-row ${hasPic?'done':'pending'}" onclick="handleSORowClick('${so}')" onmouseenter="linkedHover('${so}',true)" onmouseleave="linkedHover('${so}',false)">
         <td colspan="6" style="padding:0 12px 8px 0;border-top:none" class="so-badges-cell">
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
             ${printedFull}${printedCheck}
