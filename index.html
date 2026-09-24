@@ -128,7 +128,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--s
   #view-main .toolbar{min-width:0;width:100%;box-sizing:border-box;overflow-x:hidden}
   #view-main{display:flex;flex-direction:column;flex:1;overflow:hidden;min-height:0}
   .metrics{flex-shrink:0}.toolbar{flex-shrink:0}
-  .table-wrap{flex:1;overflow-y:scroll;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding-bottom:env(safe-area-inset-bottom,40px);min-height:0;min-width:0}
+  .table-wrap{flex:1;overflow-y:scroll;overflow-x:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;touch-action:pan-y;padding-bottom:env(safe-area-inset-bottom,40px);min-height:0;min-width:0}
   #main-table{table-layout:fixed}
   #thead-row th:nth-child(1){width:40px!important}
   #thead-row th:nth-child(2){width:20px!important}
@@ -160,10 +160,11 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--s
   #view-main .toolbar{padding:8px 10px;gap:6px}
   #orders-summary{min-width:0}
   #category-breakdown{min-width:0}
-  #search{font-size:13px;width:200px!important;min-width:0!important;flex:none!important}
-  select.filt{font-size:11px;padding:5px 6px;min-width:0}
-  #f-via{width:140px!important;flex:none!important;min-width:0!important}
+  #search{font-size:12px;width:100%!important;min-width:0!important;flex:1 1 100%!important;padding:5px 8px}
+  select.filt{font-size:10px;padding:3px 4px;min-width:0;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #f-via{width:auto!important;flex:1!important;min-width:0!important;font-size:11px;padding:6px 8px}
   #xbtn{display:none}
+  #cb-toggle-btn{font-size:11px;padding:6px 8px;gap:3px;flex:1;justify-content:center}
  
   /* Show ship via col, hide travelers col on mobile */
   thead th:nth-child(5){display:none}
@@ -171,7 +172,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--s
   .tr-row td:nth-child(5){display:none}
 
   /* SO row sizing */
-  .so-row td{padding:6px 4px;font-size:13px}
+  .so-row td{padding:6px 4px!important;font-size:13px!important}
   .so-row td:first-child{padding-left:6px}
   .so-dept-wrap{display:block;width:max-content;max-width:none;white-space:nowrap;margin-left:19px;margin-top:2px}
 
@@ -189,11 +190,19 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--s
 
   /* Via pill — mobile shows emoji icon only */
   .via-pill .via-label{display:none}
-  .via-pill{padding:5px 7px;font-size:14px;gap:0;min-width:28px;justify-content:center}
+  .via-pill{padding:5px 7px!important;font-size:14px!important;gap:0!important;min-width:28px;justify-content:center}
 
   /* Approval badge — mobile shows ✓ only */
   .appr-full{display:none!important}
   .appr-check{display:inline-flex!important}
+
+  /* Possibly-completed badge — mobile shows ⚠ only */
+  .flag-full{display:none!important}
+  .flag-check{display:inline-flex!important}
+
+  /* Printed badge — mobile shows 🖨 only */
+  .prn-full{display:none!important}
+  .prn-check{display:inline-flex!important}
 
   /* Traveler rows */
   .tr-row td{padding:8px 6px 8px 18px;font-size:13px}
@@ -228,6 +237,7 @@ table{width:100%;border-collapse:collapse}
 thead th{position:sticky;top:0;z-index:2;background:var(--surface);border-bottom:1px solid var(--border2);padding:10px 14px;text-align:left;font-size:11px;font-family:var(--mono);letter-spacing:0.07em;color:var(--text3);text-transform:uppercase;white-space:nowrap}
 .so-row{cursor:pointer;user-select:none}
 .so-row td{padding:14px 14px;border-bottom:1px solid var(--border);vertical-align:middle;transition:background 0.1s;font-size:14px}
+.so-row.no-bb td{border-bottom:none}
 .so-row:hover td{background:var(--surface2)}
 .so-row.done td{background:rgba(96,208,138,0.04)}
 .so-row.done td:first-child{border-left:3px solid var(--green)}
@@ -277,6 +287,8 @@ thead th{position:sticky;top:0;z-index:2;background:var(--surface);border-bottom
 .td{background:var(--surface3);color:var(--text3);border:1px solid var(--border)}
 .mono{font-family:var(--mono);font-size:12px;font-variant-numeric:tabular-nums}
 .appr-check{display:none}
+.flag-check{display:none}
+.prn-check{display:none}
  
 /* ── Archive view ──────────────────────────────────────────────────────────── */
 .archive-view{flex:1;overflow-y:auto;display:flex;flex-direction:column;-webkit-overflow-scrolling:touch}
@@ -350,6 +362,7 @@ thead th{position:sticky;top:0;z-index:2;background:var(--surface);border-bottom
 .pl-preview-page{position:absolute;top:0;left:0;width:4in;height:6in;padding:calc(0.22in - var(--lbl-top-reduce,5px)) 0.22in 0.22in 0.22in;box-sizing:border-box;transform:scale(0.75);transform-origin:top left;background:#fff;color:#000;font-family:Arial,Helvetica,sans-serif}
 .pl-preview-page .lbl-so{font-size:65px;font-weight:800;margin-bottom:0;letter-spacing:1px;text-align:center}
 .pl-preview-page .lbl-line{font-size:calc(22px * var(--lbl-dept-scale,1));font-weight:700;margin-bottom:var(--lbl-line-gap,6px)}
+.pl-preview-page .lbl-cust-name{font-size:var(--lbl-line-size,22px)}
 .pl-preview-page .lbl-divider{border-top:2px solid #000;margin:calc(4px * var(--lbl-dept-scale,1)) 0 calc(8px * var(--lbl-dept-scale,1))}
 .pl-preview-page .lbl-loc{font-size:18px;font-weight:700;margin:10px 0 4px}
 .pl-preview-page .lbl-item{margin-bottom:calc(14px * var(--lbl-scale,1) * var(--lbl-item-dept-scale,1))}
@@ -603,8 +616,8 @@ thead th{position:sticky;top:0;z-index:2;background:var(--surface);border-bottom
       <div id="pl-preview" style="max-height:65vh;overflow-y:auto"></div>
       <div style="flex:1;min-width:0">
         <div class="modal-field">
-          <div class="modal-label">CUST code</div>
-          <input class="modal-input" id="pl-cust" type="text" placeholder="e.g. 01-VF_610" oninput="renderPrintLabelPreview()">
+          <div class="modal-label">Customer name</div>
+          <input class="modal-input" id="pl-cust" type="text" placeholder="e.g. VF FENCE LLC" oninput="renderPrintLabelPreview()">
         </div>
         <div class="modal-field">
           <div class="modal-label">PO#</div>
@@ -1280,15 +1293,16 @@ function deptPillsForTravelers(travelers){
   const present = [...new Set((travelers||[]).flatMap(t=>[t.department,t.deptExtra]).filter(Boolean))];
   return present.map(makeDeptPill).join('');
 }
-function soLabelPrintedBadge(so){
-  const depts = ['wood','gate','gear'].filter(d=>labelPrints[so+'|'+d]);
+function soLabelPrintedBadge(so, mode){
+  const depts = ['wood','gate','gear'].filter(d=>labelPrints[so+'|'+d] && activeDepts.has(d));
   if(!depts.length) return '';
   const title = depts.map(d=>{
     const p = labelPrints[so+'|'+d];
     const when = new Date(p.printed_at).toLocaleDateString();
     return `${DEPT_META[d]?.label||d} label printed ${when} by ${p.printed_by||'worker'}`;
   }).join(' · ');
-  return `<span class="tag td" title="${escapeHtml(title)}">🖨 Printed</span>`;
+  if(mode==='check') return `<span class="tag td prn-check" title="${escapeHtml(title)}">🖨</span>`;
+  return `<span class="tag td prn-full" title="${escapeHtml(title)}">🖨 Printed</span>`;
 }
 function isDeptVisible(department){
   return !department || activeDepts.has(department);
@@ -2596,21 +2610,31 @@ function render(){
     const picTag=hasPic?`<span class="tag tg">✓ ${soPhotos.length} photo${soPhotos.length>1?'s':''}</span>`:`<span class="tag ta">No photo</span>`;
  
     const isMgr = currentProfile?.role === 'manager';
-    const hasWoodTravelers = orders.some(o=>o.so===so && o.department==='wood');
-    const hasGateTravelers = orders.some(o=>o.so===so && o.department==='gate');
-    const hasGearTravelers = orders.some(o=>o.so===so && o.department==='gear');
+    const hasWoodTravelers = activeDepts.has('wood') && orders.some(o=>o.so===so && o.department==='wood');
+    const hasGateTravelers = activeDepts.has('gate') && orders.some(o=>o.so===so && o.department==='gate');
+    const hasGearTravelers = activeDepts.has('gear') && orders.some(o=>o.so===so && o.department==='gear');
     // Approval status for SO
     const approvedTravelers = travelers.filter(o => approvals[o.traveler]);
     const allApproved = travelers.length > 0 && approvedTravelers.length === travelers.length;
     const someApproved = approvedTravelers.length > 0 && !allApproved;
-    const approvalBadge = allApproved
-      ? `<span class="tag tg appr-full" style="margin-left:6px">✓ Approved</span><span class="appr-check tag tg" style="display:none;margin-left:4px">✓</span>`
+    const approvalFull = allApproved
+      ? `<span class="tag tg appr-full" style="margin-left:6px">✓ Approved</span>`
       : someApproved
-      ? `<span class="tag td appr-full" style="margin-left:6px">${approvedTravelers.length}/${travelers.length} approved</span><span class="appr-check tag td" style="display:none;margin-left:4px">${approvedTravelers.length}/${travelers.length}</span>`
+      ? `<span class="tag td appr-full" style="margin-left:6px">${approvedTravelers.length}/${travelers.length} approved</span>`
       : '';
-    const flaggedBadge = travelers[0].flaggedMissingAt
-      ? `<span class="tag ta" title="Missing from the last CSV upload after every prod line on this SO was covered — possibly completed or removed">POSSIBLY COMPLETED</span>`
+    const approvalCheck = allApproved
+      ? `<span class="appr-check tag tg">✓</span>`
+      : someApproved
+      ? `<span class="appr-check tag td">${approvedTravelers.length}/${travelers.length}</span>`
       : '';
+    const flagFull = travelers[0].flaggedMissingAt
+      ? `<span class="tag ta flag-full" title="Missing from the last CSV upload after every prod line on this SO was covered — possibly completed or removed">POSSIBLY COMPLETED</span>`
+      : '';
+    const flagCheck = travelers[0].flaggedMissingAt
+      ? `<span class="tag ta flag-check" title="Missing from the last CSV upload after every prod line on this SO was covered — possibly completed or removed">⚠</span>`
+      : '';
+    const printedFull = soLabelPrintedBadge(so);
+    const printedCheck = soLabelPrintedBadge(so,'check');
  
     const canEditDate = document.body.classList.contains('can-edit-date');
     const dateCell = canEditDate
@@ -2622,15 +2646,12 @@ function render(){
          </td>`
       : `<td><span class="mono" style="color:var(--text);font-size:13px;font-weight:600">${fmtDate(soShipRaw)}</span></td>`;
  
-    html+=`<tr id="so-row-${so}" class="so-row ${hasPic?'done':'pending'}" onclick="handleSORowClick('${so}')">
+    html+=`<tr id="so-row-${so}" class="so-row ${hasPic?'done':'pending'}${(approvalFull||flagFull||printedFull)?' no-bb':''}" onclick="handleSORowClick('${so}')">
       <td><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
         <span class="chevron${isOpen?' open':''}"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg></span>
         <span style="font-family:var(--mono);font-size:13px;font-weight:600;color:var(--text)">${so}</span>
         <span class="so-dept-wrap">${deptPillsForTravelers(travelers)}</span>
         ${visibleCommentsFor(so).length?`<span title="${visibleCommentsFor(so).length} comment${visibleCommentsFor(so).length>1?'s':''}" style="display:inline-flex;align-items:center;color:var(--blue);opacity:0.8"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg></span>`:''}
-        ${approvalBadge}
-        ${flaggedBadge}
-        ${soLabelPrintedBadge(so)}
       </div></td>
       ${dateCell}
       <td>${viaTag}</td>
@@ -2642,6 +2663,18 @@ function render(){
         ${isMgr && (hasWoodTravelers||hasGateTravelers||hasGearTravelers) ? `<button class="btn print-label-btn" onclick="event.stopPropagation();openPrintLabelModal('${so}')" style="font-size:10px;padding:3px 8px">Print label</button>` : ''}
       </div></td>
     </tr>`;
+
+    if(approvalFull||flagFull||printedFull){
+      html+=`<tr class="so-row so-badges-row ${hasPic?'done':'pending'}" onclick="handleSORowClick('${so}')">
+        <td colspan="6" style="padding:0 12px 8px 34px!important;border-top:none">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            ${printedFull}${printedCheck}
+            ${approvalFull}${approvalCheck}
+            ${flagFull}${flagCheck}
+          </div>
+        </td>
+      </tr>`;
+    }
  
     if(isOpen){
       html+=buildSODetailRows(so, travelers, soPhotos, isMgr);
@@ -4103,17 +4136,17 @@ let labelDeptTravelers = [];
 let labelSkids = []; // [{ items: [{traveler,item,desc,qty}] }]
 let labelEditingItems = new Set(); // keys "si-ii" currently in wording-edit mode
 const LABEL_DEPT_CONFIG = {
-  wood: { cap: 20, allowCombine: true, widthIn: 4, heightIn: 6, previewScale: 1,   printScale: 1,   previewItemScale: 1,   printItemScale: 1,   topReducePx: 5,  lineGapPx: 6, colorTagStyle: 'swatch' },
-  gate: { cap: 1,  allowCombine: false, widthIn: 4, heightIn: 3, previewScale: 0.5, printScale: 0.65, previewItemScale: 0.5, printItemScale: 0.5, topReducePx: 18, lineGapPx: 2, colorTagStyle: 'text' },
-  gear: { cap: 14, allowCombine: true, widthIn: 4, heightIn: 6, previewScale: 1,   printScale: 1,   previewItemScale: 1,   printItemScale: 1,   topReducePx: 5,  lineGapPx: 6, colorTagStyle: 'text' }
+  wood: { cap: 20, allowCombine: true, widthIn: 4, heightIn: 6, previewScale: 1,   printScale: 1,   previewItemScale: 1,   printItemScale: 1,   topReducePx: 5,  lineGapPx: 6, colorTagStyle: 'swatch', lineSizePreview: 12, lineSizePrint: 12 },
+  gate: { cap: 1,  allowCombine: false, widthIn: 4, heightIn: 3, previewScale: 0.5, printScale: 0.65, previewItemScale: 0.5, printItemScale: 0.5, topReducePx: 18, lineGapPx: 2, colorTagStyle: 'text', lineSizePreview: 11, lineSizePrint: 14.3 },
+  gear: { cap: 14, allowCombine: true, widthIn: 4, heightIn: 6, previewScale: 1,   printScale: 1,   previewItemScale: 1,   printItemScale: 1,   topReducePx: 5,  lineGapPx: 6, colorTagStyle: 'text', lineSizePreview: 12, lineSizePrint: 12 }
 };
 
 function openPrintLabelModal(so){
   if(currentProfile?.role!=='manager') return;
   const travelersByDept = {
-    wood: orders.filter(o=>o.so===so && o.department==='wood'),
-    gate: orders.filter(o=>o.so===so && o.department==='gate'),
-    gear: orders.filter(o=>o.so===so && o.department==='gear')
+    wood: activeDepts.has('wood') ? orders.filter(o=>o.so===so && o.department==='wood') : [],
+    gate: activeDepts.has('gate') ? orders.filter(o=>o.so===so && o.department==='gate') : [],
+    gear: activeDepts.has('gear') ? orders.filter(o=>o.so===so && o.department==='gear') : []
   };
   const availableDepts = Object.keys(travelersByDept).filter(d=>travelersByDept[d].length);
   if(!availableDepts.length){ toast('No Wood/Gate/Gear travelers', 'This SO has no Wood, Gate, or Gear department travelers.', 'amber'); return; }
@@ -4138,7 +4171,7 @@ function setPrintLabelDept(dept){
     document.getElementById('pl-dept-'+d+'-btn')?.classList.toggle('primary', dept===d);
   });
   labelEditingItems = new Set();
-  const custMatch = customerNameMap.get((labelDeptTravelers[0]?.customer||'').trim().toUpperCase());
+  const custMatch = (labelDeptTravelers[0]?.customer||'').trim();
   const cap = LABEL_DEPT_CONFIG[dept].cap;
   const statusEl = document.getElementById('pl-print-status');
   const prevPrint = labelPrints[labelSO+'|'+dept];
@@ -4267,6 +4300,13 @@ function labelScaleForItemCount(n){
   const table = {1:1, 2:0.8, 3:0.66, 4:0.56, 5:0.48, 6:0.42, 7:0.37};
   return table[n] || 0.37;
 }
+function custNameFontSize(name){
+  const len = (name||'').length;
+  if(len<=12) return 22;
+  if(len<=18) return 18;
+  if(len<=26) return 15;
+  return 12;
+}
 const MAX_ITEMS_PER_LABEL_PAGE = 7;
 function viaColorHex(via, location){
   if(via==='OUR TRUCK') return '#2ea043';
@@ -4301,6 +4341,7 @@ function renderPrintLabelPreview(){
   const wrapW = cfg.widthIn*72, wrapH = cfg.heightIn*72; // 96px/in * 0.75 scale
   const cust = document.getElementById('pl-cust')?.value.trim() || '';
   const po = document.getElementById('pl-po')?.value.trim() || '';
+  const custLineSize = labelDept==='gate' ? cfg.lineSizePreview : custNameFontSize(cust);
   const shipDate = fmtDate(t0.soShipRaw);
   const validSkids = labelSkids.filter(s=>s.items.length);
   const total = validSkids.length;
@@ -4315,9 +4356,9 @@ function renderPrintLabelPreview(){
         </div>
         <div class="lbl-item-desc">${escapeHtml(it.desc)}</div>
       </div>`).join('');
-      html += `<div class="pl-preview-wrap" style="width:${wrapW}px;height:${wrapH}px"><div class="pl-preview-page" style="width:${cfg.widthIn}in;height:${cfg.heightIn}in;--lbl-scale:${labelScaleForItemCount(chunk.length)};--lbl-dept-scale:${cfg.previewScale};--lbl-item-dept-scale:${cfg.previewItemScale};--lbl-top-reduce:${cfg.topReducePx}px;--lbl-line-gap:${cfg.lineGapPx}px">
+      html += `<div class="pl-preview-wrap" style="width:${wrapW}px;height:${wrapH}px"><div class="pl-preview-page" style="width:${cfg.widthIn}in;height:${cfg.heightIn}in;--lbl-scale:${labelScaleForItemCount(chunk.length)};--lbl-dept-scale:${cfg.previewScale};--lbl-item-dept-scale:${cfg.previewItemScale};--lbl-top-reduce:${cfg.topReducePx}px;--lbl-line-gap:${cfg.lineGapPx}px;--lbl-line-size:${custLineSize}px">
       <div class="lbl-so">${escapeHtml(String(labelSO).padStart(7,'0'))}</div>
-      <div class="lbl-line">CUST: ${escapeHtml(cust)}</div>
+      <div class="lbl-line">CUST: <span class="lbl-cust-name">${escapeHtml(cust)}</span></div>
       <div class="lbl-line">SHIP VIA: ${escapeHtml(t0.via||'')}</div>
       <div class="lbl-line">PO#: ${escapeHtml(po)}</div>
       <div class="lbl-line">SHIP DATE: ${shipDate}</div>
@@ -4412,6 +4453,7 @@ function generateLabelDocument(so, cust, po, skids){
   const t0 = labelDeptTravelers[0];
   const cfg = LABEL_DEPT_CONFIG[labelDept];
   const shipDate = fmtDate(t0.soShipRaw);
+  const custLineSize = labelDept==='gate' ? cfg.lineSizePrint : custNameFontSize(cust);
   const total = skids.length;
   let pages = '';
   skids.forEach((skid,i)=>{
@@ -4424,9 +4466,9 @@ function generateLabelDocument(so, cust, po, skids){
         </div>
         <div class="lbl-item-desc">${escapeHtml(it.desc)}</div>
       </div>`).join('');
-      const pageHtml = `<div class="label" style="--lbl-scale:${labelScaleForItemCount(chunk.length)};--lbl-dept-scale:${cfg.printScale};--lbl-item-dept-scale:${cfg.printItemScale};--lbl-top-reduce:${cfg.topReducePx}px;--lbl-line-gap:${cfg.lineGapPx}px">
+      const pageHtml = `<div class="label" style="--lbl-scale:${labelScaleForItemCount(chunk.length)};--lbl-dept-scale:${cfg.printScale};--lbl-item-dept-scale:${cfg.printItemScale};--lbl-top-reduce:${cfg.topReducePx}px;--lbl-line-gap:${cfg.lineGapPx}px;--lbl-line-size:${custLineSize}px">
       <div class="lbl-so">${escapeHtml(String(so).padStart(7,'0'))}</div>
-      <div class="lbl-line">CUST: ${escapeHtml(cust)}</div>
+      <div class="lbl-line">CUST: <span class="lbl-cust-name">${escapeHtml(cust)}</span></div>
       <div class="lbl-line">SHIP VIA: ${t0.via||''}</div>
       <div class="lbl-line">PO#: ${escapeHtml(po)}</div>
       <div class="lbl-line">SHIP DATE: ${shipDate}</div>
@@ -4450,6 +4492,7 @@ body{background:#fff;color:#000}
 .label{width:${cfg.widthIn}in;height:${cfg.heightIn}in;padding:calc(0.22in - var(--lbl-top-reduce,5px)) 0.22in 0.22in 0.22in;position:relative;page-break-after:always;overflow:hidden}
 .lbl-so{font-size:65px;font-weight:800;margin-bottom:0;letter-spacing:1px;text-align:center}
 .lbl-line{font-size:calc(22px * var(--lbl-dept-scale,1));font-weight:700;margin-bottom:var(--lbl-line-gap,6px)}
+.lbl-cust-name{font-size:var(--lbl-line-size,22px)}
 .lbl-divider{border-top:2px solid #000;margin:calc(4px * var(--lbl-dept-scale,1)) 0 calc(8px * var(--lbl-dept-scale,1))}
 .lbl-item{margin-bottom:calc(14px * var(--lbl-scale,1) * var(--lbl-item-dept-scale,1))}
 .lbl-item-row{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
