@@ -194,6 +194,12 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--s
   .so-row td:nth-child(3){padding-left:0!important}
   .so-badges-cell{padding-left:19px!important}
 
+  /* Mobile opens a modal on tap, not an inline expand — the chevron and the
+     department-status accent bar are desktop-only affordances */
+  .so-row .chevron{display:none!important}
+  .so-row.done td:first-child{border-left:none!important}
+  .so-row.pending td:first-child{border-left:none!important}
+
   /* Photos tag */
   .so-row .tag{font-size:10px;padding:2px 5px}
 
