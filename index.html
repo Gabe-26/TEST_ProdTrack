@@ -130,11 +130,16 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--s
   .metrics{flex-shrink:0}.toolbar{flex-shrink:0}
   .table-wrap{flex:1;overflow-y:scroll;overflow-x:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;touch-action:pan-y;padding-bottom:env(safe-area-inset-bottom,40px);min-height:0;min-width:0}
   #main-table{table-layout:fixed}
-  #thead-row th:nth-child(1){width:40px!important}
-  #thead-row th:nth-child(2){width:20px!important}
-  #thead-row th:nth-child(3){width:1px!important}
+  #thead-row th:nth-child(1){width:56px!important}
+  #thead-row th:nth-child(2){width:80px!important}
+  #thead-row th:nth-child(3){width:42px!important}
   #thead-row th:nth-child(4){width:55px!important}
-  #thead-row th:nth-child(6){width:40px!important}
+  #thead-row th:nth-child(6){width:70px!important}
+
+  /* fit-content forces this to its natural (desktop) size regardless of
+     the mobile column's actual width, overflowing past the cell — let it
+     size to the cell instead */
+  .date-click-wrap{width:auto!important}
   .approve-btn{font-size:10px;padding:3px 6px}
   .upload-view,.users-view{flex:1;overflow-y:scroll;-webkit-overflow-scrolling:touch;padding-bottom:env(safe-area-inset-bottom,40px)}
   .pill:not(.live):not(.mgr){display:none}
@@ -2639,7 +2644,7 @@ function render(){
     const canEditDate = document.body.classList.contains('can-edit-date');
     const dateCell = canEditDate
       ? `<td onclick="event.stopPropagation();openDatePicker('${so}','${soShipRaw||''}',this)">
-           <div style="display:flex;align-items:center;gap:6px;cursor:pointer;width:fit-content" title="Click to change ship date">
+           <div class="date-click-wrap" style="display:flex;align-items:center;gap:6px;cursor:pointer;width:fit-content" title="Click to change ship date">
              <span class="mono" style="color:var(--text);font-size:13px;font-weight:600">${fmtDate(soShipRaw)}</span>
              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2" style="flex-shrink:0"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
            </div>
