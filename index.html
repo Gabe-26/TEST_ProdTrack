@@ -4252,6 +4252,44 @@ function setPrintLabelDept(dept){
         else groups[0].push(item);
       });
       groups.forEach(items=>{ if(items.length) labelSkids.push({items}); });
+    } else if(dept==='wood'){
+      // Wood skid grouping (Gabriel's rule): Section+Gate share skids capped at a combined
+      // qty of 20; Misc rides along uncapped on the first Section+Gate skid (misc can be
+      // moved by hand); Post shares skids capped at 70; Arb/Perg gets one skid, no cap.
+      const WOOD_SECTION_GATE_CAP = 20, WOOD_POST_CAP = 70;
+      const sectionGateItems = [], postItems = [], arbPergItems = [], miscItems = [];
+      labelDeptTravelers.forEach(t=>{
+        const type = classifyWoodTraveler(t.line, t.item, t.desc);
+        const item = {traveler:t.traveler, item:t.item, desc:t.desc, qty:t.qty};
+        if(type==='arb_perg') arbPergItems.push(item);
+        else if(type==='post') postItems.push(item);
+        else if(type==='section' || type==='gate') sectionGateItems.push(item);
+        else miscItems.push(item);
+      });
+      const buildCappedGroupSkids = (items, groupCap)=>{
+        const skids = [];
+        let current = [], currentQty = 0;
+        items.forEach(it=>{
+          let remaining = it.qty;
+          while(remaining > 0){
+            if(currentQty >= groupCap){ skids.push({items:current}); current = []; currentQty = 0; }
+            const take = Math.min(remaining, groupCap - currentQty);
+            current.push({traveler:it.traveler, item:it.item, desc:it.desc, qty:take});
+            currentQty += take;
+            remaining -= take;
+          }
+        });
+        if(current.length) skids.push({items:current});
+        return skids;
+      };
+      const sectionGateSkids = buildCappedGroupSkids(sectionGateItems, WOOD_SECTION_GATE_CAP);
+      if(miscItems.length){
+        if(sectionGateSkids.length) sectionGateSkids[0].items = sectionGateSkids[0].items.concat(miscItems);
+        else sectionGateSkids.push({items:miscItems});
+      }
+      const postSkids = buildCappedGroupSkids(postItems, WOOD_POST_CAP);
+      const arbPergSkids = arbPergItems.length ? [{items:arbPergItems}] : [];
+      labelSkids = [...sectionGateSkids, ...postSkids, ...arbPergSkids];
     } else {
       labelDeptTravelers.forEach(t=>{
         let remaining = t.qty;
