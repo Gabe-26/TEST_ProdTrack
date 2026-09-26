@@ -456,6 +456,8 @@ thead th{position:sticky;top:0;z-index:2;background:var(--surface);border-bottom
 .comment-word-count.over{color:var(--red)}
 /* SO modal — let long descriptions wrap instead of truncating (desktop table keeps truncation) */
 #so-modal-body .tr-row td:nth-child(2){white-space:normal!important;overflow:visible!important;text-overflow:clip!important;max-width:none!important}
+.so-modal-desktop-cols{display:flex;gap:20px;margin-top:14px;padding-top:14px;border-top:1px solid var(--border)}
+.so-modal-desktop-cols .so-modal-col-left,.so-modal-desktop-cols .so-modal-col-right{flex:1;min-width:0}
 .trav-chev{display:none}
 #so-modal-body .trav-chev{display:inline-flex;transition:transform 0.18s;color:var(--text3);margin-right:4px}
 #so-modal-body .trav-chev.open{transform:rotate(90deg)}
@@ -834,7 +836,7 @@ thead th{position:sticky;top:0;z-index:2;background:var(--surface);border-bottom
  
 <!-- SO detail modal (mobile row tap) -->
 <div class="modal-overlay" id="so-modal">
-  <div class="modal-card" style="max-width:700px;max-height:85vh;overflow-y:auto;-webkit-overflow-scrolling:touch;text-align:left">
+  <div class="modal-card" id="so-modal-card" style="max-width:700px;max-height:85vh;overflow-y:auto;-webkit-overflow-scrolling:touch;text-align:left">
     <div class="modal-title">
       <span id="so-modal-title">SO</span>
       <button class="modal-close" onclick="closeSOModal()">✕</button>
@@ -2964,9 +2966,37 @@ function openSOModal(so){
       ${isMgr && !allApproved ? `<button class="approve-btn" onclick="confirmColorThenApproveAll('${so}')" style="font-size:11px;padding:4px 9px">Approve all</button>` : ''}
     </div>`;
   document.getElementById('so-modal-body').innerHTML = `<table style="width:100%;border-collapse:collapse"><tbody>${buildSODetailRows(so, travelers, soPhotos, isMgr)}</tbody></table>`;
+  const modalCard = document.getElementById('so-modal-card');
+  if(isMobileLayout()){
+    modalCard.style.maxWidth = '700px';
+  } else {
+    modalCard.style.maxWidth = '1100px';
+    layoutSOModalDesktopColumns(so);
+  }
   document.getElementById('so-modal').classList.add('open');
   autoTranslateComments(so);
   loadMoveLogForSO(so);
+}
+// Desktop-only: pulls the comments section and the move-log (date change) section out of
+// their normal stacked spots and lays them side by side (comments left, move log right)
+// below the photos section. Mobile keeps the single-column stack untouched — buildSODetailRows()
+// itself is never forked, this just rearranges the DOM nodes it already produced.
+function layoutSOModalDesktopColumns(so){
+  const tbl = document.querySelector('#so-modal-body table');
+  if(!tbl) return;
+  const movelogRow = tbl.querySelector('tr.movelog-row');
+  const movelogTd = movelogRow ? movelogRow.querySelector('td') : null;
+  const commentsSection = tbl.querySelector('.comments-section');
+  if(!movelogTd || !commentsSection) return;
+  const cols = document.createElement('div');
+  cols.className = 'so-modal-desktop-cols';
+  cols.innerHTML = '<div class="so-modal-col-left"></div><div class="so-modal-col-right"></div>';
+  const left = cols.querySelector('.so-modal-col-left');
+  const right = cols.querySelector('.so-modal-col-right');
+  left.appendChild(commentsSection);
+  while(movelogTd.firstChild) right.appendChild(movelogTd.firstChild);
+  movelogRow.remove();
+  document.getElementById('so-modal-body').appendChild(cols);
 }
 function closeSOModal(){
   currentModalSO = null;
