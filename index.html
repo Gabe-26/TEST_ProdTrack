@@ -456,10 +456,10 @@ thead th{position:sticky;top:0;z-index:2;background:var(--surface);border-bottom
 .comment-word-count.over{color:var(--red)}
 /* SO modal — let long descriptions wrap instead of truncating (desktop table keeps truncation) */
 #so-modal-body .tr-row td:nth-child(2){white-space:normal!important;overflow:visible!important;text-overflow:clip!important;max-width:none!important}
-.so-modal-desktop-cols{display:flex;gap:16px;align-items:flex-start}
-.so-modal-desktop-cols .so-modal-col-comments{flex:0 0 25%;max-width:25%;min-width:0}
-.so-modal-desktop-cols .so-modal-col-main{flex:1 1 55%;min-width:0}
-.so-modal-desktop-cols .so-modal-col-log{flex:0 0 20%;max-width:20%;min-width:0}
+.so-modal-desktop-cols{display:flex;gap:0;align-items:flex-start}
+.so-modal-desktop-cols .so-modal-col-comments{flex:0 0 30%;max-width:30%;min-width:0;padding-right:16px;border-right:1px solid var(--border)}
+.so-modal-desktop-cols .so-modal-col-main{flex:1 1 55%;min-width:0;padding:0 16px;border-right:1px solid var(--border)}
+.so-modal-desktop-cols .so-modal-col-log{flex:0 0 15%;max-width:15%;min-width:0;padding-left:16px}
 .trav-chev{display:none}
 #so-modal-body .trav-chev{display:inline-flex;transition:transform 0.18s;color:var(--text3);margin-right:4px}
 #so-modal-body .trav-chev.open{transform:rotate(90deg)}
