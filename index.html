@@ -456,8 +456,10 @@ thead th{position:sticky;top:0;z-index:2;background:var(--surface);border-bottom
 .comment-word-count.over{color:var(--red)}
 /* SO modal — let long descriptions wrap instead of truncating (desktop table keeps truncation) */
 #so-modal-body .tr-row td:nth-child(2){white-space:normal!important;overflow:visible!important;text-overflow:clip!important;max-width:none!important}
-.so-modal-desktop-cols{display:flex;gap:20px;margin-top:14px;padding-top:14px;border-top:1px solid var(--border)}
-.so-modal-desktop-cols .so-modal-col-left,.so-modal-desktop-cols .so-modal-col-right{flex:1;min-width:0}
+.so-modal-desktop-cols{display:flex;gap:16px;align-items:flex-start}
+.so-modal-desktop-cols .so-modal-col-comments{flex:0 0 25%;max-width:25%;min-width:0}
+.so-modal-desktop-cols .so-modal-col-main{flex:1 1 55%;min-width:0}
+.so-modal-desktop-cols .so-modal-col-log{flex:0 0 20%;max-width:20%;min-width:0}
 .trav-chev{display:none}
 #so-modal-body .trav-chev{display:inline-flex;transition:transform 0.18s;color:var(--text3);margin-right:4px}
 #so-modal-body .trav-chev.open{transform:rotate(90deg)}
@@ -2982,7 +2984,8 @@ function openSOModal(so){
 // below the photos section. Mobile keeps the single-column stack untouched — buildSODetailRows()
 // itself is never forked, this just rearranges the DOM nodes it already produced.
 function layoutSOModalDesktopColumns(so){
-  const tbl = document.querySelector('#so-modal-body table');
+  const body = document.getElementById('so-modal-body');
+  const tbl = body.querySelector('table');
   if(!tbl) return;
   const movelogRow = tbl.querySelector('tr.movelog-row');
   const movelogTd = movelogRow ? movelogRow.querySelector('td') : null;
@@ -2990,13 +2993,15 @@ function layoutSOModalDesktopColumns(so){
   if(!movelogTd || !commentsSection) return;
   const cols = document.createElement('div');
   cols.className = 'so-modal-desktop-cols';
-  cols.innerHTML = '<div class="so-modal-col-left"></div><div class="so-modal-col-right"></div>';
-  const left = cols.querySelector('.so-modal-col-left');
-  const right = cols.querySelector('.so-modal-col-right');
-  left.appendChild(commentsSection);
-  while(movelogTd.firstChild) right.appendChild(movelogTd.firstChild);
+  cols.innerHTML = '<div class="so-modal-col-comments"></div><div class="so-modal-col-main"></div><div class="so-modal-col-log"></div>';
+  const colComments = cols.querySelector('.so-modal-col-comments');
+  const colMain = cols.querySelector('.so-modal-col-main');
+  const colLog = cols.querySelector('.so-modal-col-log');
+  colComments.appendChild(commentsSection);
+  while(movelogTd.firstChild) colLog.appendChild(movelogTd.firstChild);
   movelogRow.remove();
-  document.getElementById('so-modal-body').appendChild(cols);
+  colMain.appendChild(tbl); // travelers + photos, unchanged, just relocated into the middle column
+  body.appendChild(cols);
 }
 function closeSOModal(){
   currentModalSO = null;
