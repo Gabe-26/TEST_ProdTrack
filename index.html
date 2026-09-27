@@ -3003,8 +3003,10 @@ function openSOModal(so){
           <span class="mono so-modal-ship-date">${fmtDate(t0.soShipRaw)}</span>
         </div>
         <div class="so-modal-header-status">${approvalBadge}${flaggedBadge}${printedBadge}</div>
-        ${printLabelBtn}
-        ${isMgr && !allApproved ? `<button class="approve-btn" onclick="confirmColorThenApproveAll('${so}')" style="font-size:11px;padding:4px 9px;margin-left:auto">Approve all</button>` : ''}
+        <div style="display:flex;align-items:center;gap:8px;margin-left:auto">
+          ${printLabelBtn}
+          ${isMgr && !allApproved ? `<button class="approve-btn" onclick="confirmColorThenApproveAll('${so}')" style="font-size:11px;padding:4px 9px">Approve all</button>` : ''}
+        </div>
       </div>
     </div>`;
   document.getElementById('so-modal-body').innerHTML = `<table style="width:100%;border-collapse:collapse"><tbody>${buildSODetailRows(so, travelers, soPhotos, isMgr)}</tbody></table>`;
