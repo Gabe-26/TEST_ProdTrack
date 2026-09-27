@@ -2965,6 +2965,13 @@ function openSOModal(so){
   const flaggedBadge = t0.flaggedMissingAt
     ? `<span class="tag ta" title="Missing from the last CSV upload after every prod line on this SO was covered — possibly completed or removed">POSSIBLY COMPLETED</span>`
     : '';
+  const printedBadge = soLabelPrintedBadge(so);
+  const hasWoodTravelers = activeDepts.has('wood') && orders.some(o=>o.so===so && o.department==='wood');
+  const hasGateTravelers = activeDepts.has('gate') && orders.some(o=>o.so===so && o.department==='gate');
+  const hasGearTravelers = activeDepts.has('gear') && orders.some(o=>o.so===so && o.department==='gear');
+  const printLabelBtn = isMgr && (hasWoodTravelers||hasGateTravelers||hasGearTravelers)
+    ? `<button class="btn print-label-btn" onclick="openPrintLabelModal('${so}')" style="font-size:11px;padding:4px 9px">Print label</button>`
+    : '';
   document.getElementById('so-modal-title').textContent = isMobileLayout() ? 'SO '+so : '';
   document.getElementById('so-modal-summary').innerHTML = isMobileLayout() ? `
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px">
@@ -2995,7 +3002,8 @@ function openSOModal(so){
           <span class="so-modal-eyebrow">Ship Date</span>
           <span class="mono so-modal-ship-date">${fmtDate(t0.soShipRaw)}</span>
         </div>
-        <div class="so-modal-header-status">${approvalBadge}${flaggedBadge}</div>
+        <div class="so-modal-header-status">${approvalBadge}${flaggedBadge}${printedBadge}</div>
+        ${printLabelBtn}
         ${isMgr && !allApproved ? `<button class="approve-btn" onclick="confirmColorThenApproveAll('${so}')" style="font-size:11px;padding:4px 9px;margin-left:auto">Approve all</button>` : ''}
       </div>
     </div>`;
