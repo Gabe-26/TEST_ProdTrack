@@ -460,6 +460,17 @@ thead th{position:sticky;top:0;z-index:2;background:var(--surface);border-bottom
 .so-modal-desktop-cols .so-modal-col-main{flex:0 0 65%;max-width:65%;min-width:0;padding-right:16px;border-right:1px solid var(--border)}
 .so-modal-desktop-cols .so-modal-col-right{flex:1 1 35%;min-width:0;padding-left:16px}
 .so-modal-desktop-cols .so-modal-col-right .comments-section{margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid var(--border)}
+.so-modal-header-desktop{padding-top:2px}
+.so-modal-eyebrow{font-size:10px;font-weight:700;letter-spacing:0.08em;color:var(--text3);text-transform:uppercase;margin-bottom:4px}
+.so-modal-header-row1{display:flex;align-items:flex-start;gap:28px;margin-bottom:16px}
+.so-modal-so-num{font-size:26px;font-weight:700;color:var(--text);letter-spacing:-0.02em}
+.so-modal-header-customer{flex:1;min-width:0}
+.so-modal-customer-name{font-size:16px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.so-modal-header-pills{display:flex;align-items:center;gap:8px;flex-wrap:wrap;flex-shrink:0;margin-top:2px}
+.so-modal-header-row2{display:flex;align-items:center;gap:24px;padding-top:14px;border-top:1px solid var(--border)}
+.so-modal-header-stat{display:flex;flex-direction:column;gap:2px}
+.so-modal-ship-date{font-size:14px;font-weight:600;color:var(--text)}
+.so-modal-header-status{display:flex;align-items:center;gap:8px}
 .trav-chev{display:none}
 #so-modal-body .trav-chev{display:inline-flex;transition:transform 0.18s;color:var(--text3);margin-right:4px}
 #so-modal-body .trav-chev.open{transform:rotate(90deg)}
@@ -2954,8 +2965,8 @@ function openSOModal(so){
   const flaggedBadge = t0.flaggedMissingAt
     ? `<span class="tag ta" title="Missing from the last CSV upload after every prod line on this SO was covered — possibly completed or removed">POSSIBLY COMPLETED</span>`
     : '';
-  document.getElementById('so-modal-title').textContent = 'SO '+so;
-  document.getElementById('so-modal-summary').innerHTML = `
+  document.getElementById('so-modal-title').textContent = isMobileLayout() ? 'SO '+so : '';
+  document.getElementById('so-modal-summary').innerHTML = isMobileLayout() ? `
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px">
       ${viaTag}
       ${deptPillsForTravelers(travelers)}
@@ -2966,6 +2977,27 @@ function openSOModal(so){
       ${approvalBadge}
       ${flaggedBadge}
       ${isMgr && !allApproved ? `<button class="approve-btn" onclick="confirmColorThenApproveAll('${so}')" style="font-size:11px;padding:4px 9px">Approve all</button>` : ''}
+    </div>` : `
+    <div class="so-modal-header-desktop">
+      <div class="so-modal-header-row1">
+        <div>
+          <div class="so-modal-eyebrow">Sales Order</div>
+          <div class="so-modal-so-num mono">${so}</div>
+        </div>
+        <div class="so-modal-header-customer">
+          <div class="so-modal-eyebrow">Customer</div>
+          <div class="so-modal-customer-name">${t0.customer}</div>
+        </div>
+        <div class="so-modal-header-pills">${viaTag}${deptPillsForTravelers(travelers)}</div>
+      </div>
+      <div class="so-modal-header-row2">
+        <div class="so-modal-header-stat">
+          <span class="so-modal-eyebrow">Ship Date</span>
+          <span class="mono so-modal-ship-date">${fmtDate(t0.soShipRaw)}</span>
+        </div>
+        <div class="so-modal-header-status">${approvalBadge}${flaggedBadge}</div>
+        ${isMgr && !allApproved ? `<button class="approve-btn" onclick="confirmColorThenApproveAll('${so}')" style="font-size:11px;padding:4px 9px;margin-left:auto">Approve all</button>` : ''}
+      </div>
     </div>`;
   document.getElementById('so-modal-body').innerHTML = `<table style="width:100%;border-collapse:collapse"><tbody>${buildSODetailRows(so, travelers, soPhotos, isMgr)}</tbody></table>`;
   const modalCard = document.getElementById('so-modal-card');
