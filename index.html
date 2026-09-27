@@ -457,9 +457,9 @@ thead th{position:sticky;top:0;z-index:2;background:var(--surface);border-bottom
 /* SO modal — let long descriptions wrap instead of truncating (desktop table keeps truncation) */
 #so-modal-body .tr-row td:nth-child(2){white-space:normal!important;overflow:visible!important;text-overflow:clip!important;max-width:none!important}
 .so-modal-desktop-cols{display:flex;gap:0;align-items:flex-start}
-.so-modal-desktop-cols .so-modal-col-comments{flex:0 0 30%;max-width:30%;min-width:0;padding-right:16px;border-right:1px solid var(--border)}
-.so-modal-desktop-cols .so-modal-col-main{flex:1 1 55%;min-width:0;padding:0 16px;border-right:1px solid var(--border)}
-.so-modal-desktop-cols .so-modal-col-log{flex:0 0 15%;max-width:15%;min-width:0;padding-left:16px}
+.so-modal-desktop-cols .so-modal-col-main{flex:0 0 65%;max-width:65%;min-width:0;padding-right:16px;border-right:1px solid var(--border)}
+.so-modal-desktop-cols .so-modal-col-right{flex:1 1 35%;min-width:0;padding-left:16px}
+.so-modal-desktop-cols .so-modal-col-right .comments-section{margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid var(--border)}
 .trav-chev{display:none}
 #so-modal-body .trav-chev{display:inline-flex;transition:transform 0.18s;color:var(--text3);margin-right:4px}
 #so-modal-body .trav-chev.open{transform:rotate(90deg)}
@@ -2993,14 +2993,13 @@ function layoutSOModalDesktopColumns(so){
   if(!movelogTd || !commentsSection) return;
   const cols = document.createElement('div');
   cols.className = 'so-modal-desktop-cols';
-  cols.innerHTML = '<div class="so-modal-col-comments"></div><div class="so-modal-col-main"></div><div class="so-modal-col-log"></div>';
-  const colComments = cols.querySelector('.so-modal-col-comments');
+  cols.innerHTML = '<div class="so-modal-col-main"></div><div class="so-modal-col-right"></div>';
   const colMain = cols.querySelector('.so-modal-col-main');
-  const colLog = cols.querySelector('.so-modal-col-log');
-  colComments.appendChild(commentsSection);
-  while(movelogTd.firstChild) colLog.appendChild(movelogTd.firstChild);
+  const colRight = cols.querySelector('.so-modal-col-right');
+  colRight.appendChild(commentsSection); // comments on top
+  while(movelogTd.firstChild) colRight.appendChild(movelogTd.firstChild); // move log below
   movelogRow.remove();
-  colMain.appendChild(tbl); // travelers + photos, unchanged, just relocated into the middle column
+  colMain.appendChild(tbl); // travelers + photos, unchanged, just relocated into the left column
   body.appendChild(cols);
 }
 function closeSOModal(){
