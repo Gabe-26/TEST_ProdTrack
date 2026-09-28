@@ -2224,6 +2224,23 @@ async function performCSVUpload(parsed, newReportTime, prodLineTimes, st){
           dateChanges.push({so,customer:t?.customer||'',from:prevSODates[so],to:newSODates[so]});
         }
       }
+      // Also record each CSV-detected date change in activity_log so it shows in the
+      // per-SO move log alongside manual changes. Batched (one POST per 500) since a
+      // single upload can move many orders; a failed write never blocks the upload.
+      try{
+        const csvActor = currentProfile?.full_name || 'unknown';
+        const logRows = dateChanges.map(c=>({
+          action:'date_change', so:c.so, actor:csvActor,
+          detail:`CSV upload (${csvActor}): order ${c.so} changed from ${fmtDate(c.from)} to ${fmtDate(c.to)}`
+        }));
+        for(let i=0;i<logRows.length;i+=500){
+          const lr = await fetch(`${SUPA_URL}/rest/v1/activity_log`,{
+            method:'POST', headers:{...H(),'Prefer':'return=minimal'},
+            body:JSON.stringify(logRows.slice(i,i+500))
+          });
+          if(!lr.ok) throw new Error(await lr.text());
+        }
+      }catch(e){ console.warn('CSV date-change log write failed:', e.message); }
       // "Missing from CSV" must check presence in the FULL report, not just
       // the applied rows — an SO whose only rows were skipped for being
       // stale is still genuinely present in this report, not gone from Sage.
