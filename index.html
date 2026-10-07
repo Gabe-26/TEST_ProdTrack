@@ -279,6 +279,7 @@ thead th{position:sticky;top:0;z-index:2;background:var(--surface);border-bottom
 .photo-del{position:absolute;top:-7px;right:-7px;width:22px;height:22px;border-radius:50%;background:var(--red);border:2px solid var(--bg);display:none;align-items:center;justify-content:center;cursor:pointer;color:#fff;font-size:12px;font-weight:700;z-index:2;transition:transform 0.15s}
 .photo-del:hover{transform:scale(1.15)}
 .manager .photo-del{display:flex}
+.photo-del.photo-del-own{display:flex}
 .viewer .upload-zone{display:none}
 .viewer .photo-bar .upload-zone{display:none}
 .upload-zone{display:flex;align-items:center;gap:8px;padding:10px 14px;border:1.5px dashed var(--border2);border-radius:8px;cursor:pointer;transition:all 0.15s;position:relative;font-size:13px;color:var(--text3);width:fit-content}
@@ -392,6 +393,7 @@ thead th{position:sticky;top:0;z-index:2;background:var(--surface);border-bottom
 .pl-preview-page .lbl-bottom-row{position:absolute;bottom:0.22in;left:0.22in;right:0.22in;display:flex;align-items:stretch;gap:8px;height:32px}
 .pl-preview-page .lbl-color-tag{flex:1;border:2px solid #000;border-radius:2px}
 .pl-preview-page .lbl-color-tag-text{display:flex;align-items:center;justify-content:center;font-weight:900;font-size:16px;letter-spacing:1px;color:#000;background:transparent}
+.pl-preview-page .lbl-color-tag-plain{border:none}
 .pl-preview-page .lbl-bottom-row .lbl-page{position:static;display:flex;align-items:center;justify-content:center;white-space:nowrap}
 .modal-select{width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:6px;padding:9px 12px;color:var(--text);font-family:var(--sans);font-size:13px;outline:none;cursor:pointer}
 .modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:20px}
@@ -642,6 +644,13 @@ thead th{position:sticky;top:0;z-index:2;background:var(--surface);border-bottom
         <button class="btn primary" id="pl-dept-wood-btn" onclick="setPrintLabelDept('wood')">Wood</button>
         <button class="btn" id="pl-dept-gate-btn" onclick="setPrintLabelDept('gate')">Gate</button>
         <button class="btn" id="pl-dept-gear-btn" onclick="setPrintLabelDept('gear')">Gear</button>
+      </div>
+    </div>
+    <div class="modal-field" id="pl-format-picker" style="display:none">
+      <div class="modal-label">Label size</div>
+      <div style="display:flex;gap:8px">
+        <button class="btn primary" id="pl-format-gear-btn" onclick="setLabelFormat('gear')">Gear label (4×6)</button>
+        <button class="btn" id="pl-format-gate-btn" onclick="setLabelFormat('gate')">Gate label (4×3)</button>
       </div>
     </div>
     <div id="pl-print-status" style="display:none;font-size:12px;padding:8px 10px;border-radius:6px;background:var(--surface2);border:1px solid var(--border2);margin-bottom:12px"></div>
@@ -1153,6 +1162,7 @@ thead th{position:sticky;top:0;z-index:2;background:var(--surface);border-bottom
             <option value="approved">Approvals</option>
             <option value="unapproved">Approvals removed</option>
             <option value="date_change">Date changes</option>
+            <option value="revision">Revisions</option>
           </select>
           <span style="margin-left:auto;font-size:11px;font-family:var(--mono);color:var(--text3)" id="log-count"></span>
         </div>
@@ -1612,8 +1622,24 @@ async function loadOrders(){
     traveler:r.traveler, so:r.so, item:r.item, desc:r.description,
     qty:r.qty, line:r.line, soShip:r.so_ship?fmtDate(r.so_ship):'',
     soShipRaw:r.so_ship, via:r.via, location:r.location||'', customer:r.customer,
-    department:r.department, deptExtra:r.department_extra, flaggedMissingAt:r.flagged_missing_at
+    department:r.department, deptExtra:r.department_extra, flaggedMissingAt:r.flagged_missing_at,
+    completedBatch:r.completed_batch||null, completedAt:r.completed_at||null,
+    revisedAt:r.revised_at||null
   }));
+  recomputeCompletedSOBatch();
+}
+let completedSOBatch = {};
+// An SO is "Completed" when EVERY traveler in the departments currently toggled on carries a
+// register batch tag. So it changes as departments are toggled (Gate-only can be complete
+// while Gear on the same SO is not). Recomputed at the start of render() and openSOModal().
+function recomputeCompletedSOBatch(){
+  completedSOBatch = {};
+  const bySO = {};
+  orders.forEach(o=>{ if(isOrderVisible(o)) (bySO[o.so] = bySO[o.so] || []).push(o); });
+  for(const so in bySO){
+    const ts = bySO[so];
+    if(ts.length && ts.every(t=>t.completedBatch)) completedSOBatch[so] = [...new Set(ts.map(t=>t.completedBatch))].join(', ');
+  }
 }
 let archivedLoaded = false;
 async function loadArchivedOrders(){
@@ -1830,7 +1856,7 @@ async function refreshData(){
   try{
     const ok = await refreshAuthToken();
     if(!ok){ await forceReauth('Session expired — please sign in again.'); btn.disabled=false; return; }
-    await Promise.all([loadOrders(),loadPhotos(),loadApprovals(),loadComments(),loadHolidays(),loadCustomers(),loadWoodItemTypes(),loadGearItemTypes(),loadDepartmentBatches(),loadBatchReads(),loadLabelPrints()]); updateAll(); render(); toast('Refreshed','Data is up to date.','green'); startAutoRefresh();
+    await Promise.all([loadOrders(),loadPhotos(),loadApprovals(),loadComments(),loadHolidays(),loadCustomers(),loadWoodItemTypes(),loadGearItemTypes(),loadDepartmentBatches(),loadBatchReads(),loadLabelPrints()]); lastDataFetchAt=Date.now(); updateAll(); render(); toast('Refreshed','Data is up to date.','green'); startAutoRefresh();
   }
   catch(e){ toast('Error',e.message,'red'); }
   btn.disabled=false;
@@ -2182,6 +2208,7 @@ async function handleCSV(file){
 async function performCSVUpload(parsed, newReportTime, prodLineTimes, st){
     st.textContent='Uploading '+parsed.length+' travelers…';
     try{
+      await loadOrders(); // fresh baseline for change detection (data no longer auto-refreshes)
       const prevSODates={};
       orders.forEach(o=>{if(o.so&&o.soShipRaw) prevSODates[o.so]=o.soShipRaw;});
 
@@ -2209,7 +2236,7 @@ async function performCSVUpload(parsed, newReportTime, prodLineTimes, st){
       for(const so of Object.keys(csvSOMap)){
         const csvTravelers=[...csvSOMap[so]].join(',');
         // Delete DB rows for this SO whose traveler is NOT in the CSV list
-        await fetch(`${SUPA_URL}/rest/v1/orders?so=eq.${so}&traveler=not.in.(${csvTravelers})&archived=eq.false`,{
+        await fetch(`${SUPA_URL}/rest/v1/orders?so=eq.${so}&traveler=not.in.(${csvTravelers})&completed_batch=is.null&archived=eq.false`,{
           method:'DELETE',headers:{...H(),'Prefer':'return=minimal'}
         }).catch(()=>{});
       }
@@ -2242,6 +2269,86 @@ async function performCSVUpload(parsed, newReportTime, prodLineTimes, st){
           if(!lr.ok) throw new Error(await lr.text());
         }
       }catch(e){ console.warn('CSV date-change log write failed:', e.message); }
+
+      // Revisions: an EXISTING SO whose travelers were added/removed or whose item, description
+      // or qty changed. A brand-new SO is not a revision, and ship dates are logged separately.
+      // The tag is stored PER TRAVELER (revised_at) and each log row carries its department, so
+      // both follow the departments toggled in the sidebar. Tags stay permanently.
+      try{
+        const norm = v => String(v==null?'':v).replace(/\s+/g,' ').trim();
+        const prevBySO = {};
+        orders.forEach(o=>{ if(o.so) (prevBySO[o.so] = prevBySO[o.so] || {})[String(o.traveler)] = o; });
+        // Prod lines this report actually contained. A partial report (e.g. only line 150) says
+        // nothing about travelers on other lines, so those can't be "removed" by it.
+        const coveredLines = new Set(parsed.filter(r=>r.line).map(r=>r.line));
+        const events = [];            // {so, trav, dept (undefined = look up later), text, removed}
+        const touched = new Set();    // travelers that were added or changed
+        for(const r of rowsToUpsert){
+          const prevSO = prevBySO[r.so]; if(!prevSO) continue;
+          const tr = String(r.traveler), pv = prevSO[tr];
+          if(!pv){
+            // Only a revision if this SO already had travelers on the SAME prod line. The first
+            // traveler(s) on a line the SO didn't have yet is that line's first load (e.g. a full
+            // report arriving after a Gate-only one), not a change to the order.
+            if(Object.values(prevSO).some(o=>o.line===r.line)){
+              events.push({so:r.so, trav:tr, dept:undefined, text:`traveler ${tr} added (${r.item} x ${r.qty})`}); touched.add(tr);
+            }
+            continue;
+          }
+          const dept = pv.department || null;
+          if(norm(pv.item)!==norm(r.item)){ events.push({so:r.so, trav:tr, dept, text:`traveler ${tr} item ${pv.item} -> ${r.item}`}); touched.add(tr); }
+          if(norm(pv.desc)!==norm(r.description)){ events.push({so:r.so, trav:tr, dept, text:`traveler ${tr} description changed`}); touched.add(tr); }
+          if(Number(pv.qty)!==Number(r.qty)){ events.push({so:r.so, trav:tr, dept, text:`traveler ${tr} qty ${pv.qty} -> ${r.qty}`}); touched.add(tr); }
+        }
+        for(const so of Object.keys(csvSOMap)){
+          const prevSO = prevBySO[so]; if(!prevSO) continue;
+          for(const trav of Object.keys(prevSO)){
+            const pv = prevSO[trav];
+            if(!csvSOMap[so].has(trav) && !pv.completedBatch && coveredLines.has(pv.line)) events.push({so, trav, dept:pv.department||null, removed:true, text:`traveler ${trav} removed (${pv.item} x ${pv.qty})`});
+          }
+        }
+        if(events.length){
+          const nowIso = new Date().toISOString();
+          const deptByTraveler = {};
+          const tList = [...touched];
+          for(let i=0;i<tList.length;i+=80){
+            const pr = await fetch(`${SUPA_URL}/rest/v1/orders?traveler=in.(${tList.slice(i,i+80).join(',')})&archived=eq.false&select=traveler,department`,{
+              method:'PATCH', headers:{...H(),'Prefer':'return=representation'}, body:JSON.stringify({revised_at:nowIso})
+            });
+            if(!pr.ok) throw new Error(await pr.text());
+            (await pr.json()).forEach(row=>{ deptByTraveler[String(row.traveler)] = row.department || null; });
+          }
+          // A removed traveler no longer exists, so tag the surviving travelers of the same department.
+          const doneRemoval = new Set();
+          for(const ev of events.filter(e=>e.removed)){
+            const key = ev.so+'|'+(ev.dept||'');
+            if(doneRemoval.has(key)) continue; doneRemoval.add(key);
+            const deptFilter = ev.dept ? `&department=eq.${ev.dept}` : `&department=is.null`;
+            const rr = await fetch(`${SUPA_URL}/rest/v1/orders?so=eq.${ev.so}${deptFilter}&archived=eq.false`,{
+              method:'PATCH', headers:{...H(),'Prefer':'return=minimal'}, body:JSON.stringify({revised_at:nowIso})
+            });
+            if(!rr.ok) throw new Error(await rr.text());
+          }
+          // One log row per SO + department, listing only that department's changes.
+          const revActor = currentProfile?.full_name || 'unknown';
+          const grouped = {};
+          events.forEach(ev=>{
+            const dept = ev.dept !== undefined ? ev.dept : (deptByTraveler[ev.trav] || null);
+            const k = ev.so+'|'+(dept||'');
+            (grouped[k] = grouped[k] || {so:ev.so, dept, texts:[]}).texts.push(ev.text);
+          });
+          const revRows = Object.values(grouped).map(g=>({
+            action:'revision', so:g.so, department:g.dept, actor:revActor,
+            detail:`CSV upload (${revActor}): order ${g.so} revised${g.dept?` (${DEPT_META[g.dept]?.label||g.dept})`:''} - ${g.texts.join('; ')}`
+          }));
+          for(let i=0;i<revRows.length;i+=500){
+            const lr = await fetch(`${SUPA_URL}/rest/v1/activity_log`,{
+              method:'POST', headers:{...H(),'Prefer':'return=minimal'}, body:JSON.stringify(revRows.slice(i,i+500))
+            });
+            if(!lr.ok) throw new Error(await lr.text());
+          }
+        }
+      }catch(e){ console.warn('Revision tracking failed:', e.message); }
       // "Missing from CSV" must check presence in the FULL report, not just
       // the applied rows — an SO whose only rows were skipped for being
       // stale is still genuinely present in this report, not gone from Sage.
@@ -2492,7 +2599,7 @@ function renderOrdersSummary(groups){
   if(!['tomorrow','all'].includes(activeView)){ wrap.style.display='none'; return; }
   // Possibly-completed SOs stay visible in the table with their badge, but
   // are excluded from these tallies so they don't skew production counts.
-  const activeGroups = groups.filter(g=>!g.travelers[0]?.flaggedMissingAt);
+  const activeGroups = groups.filter(g=>!g.travelers[0]?.flaggedMissingAt && !completedSOBatch[g.so]);
   const totalTravelers = activeGroups.reduce((a,g)=>a+g.travelers.length,0);
   const totalPhotos = activeGroups.filter(g=>visiblePhotosFor(g.so).length>0).length;
   const totalNone = activeGroups.length - totalPhotos;
@@ -2534,7 +2641,7 @@ function renderCategoryBreakdown(groups){
   const wrap = document.getElementById('category-breakdown');
   if(!wrap) return;
   if(!['tomorrow','all'].includes(activeView) || categoryBreakdownHidden){ wrap.style.display='none'; return; }
-  const activeGroups = groups.filter(g=>!g.travelers[0]?.flaggedMissingAt);
+  const activeGroups = groups.filter(g=>!g.travelers[0]?.flaggedMissingAt && !completedSOBatch[g.so]);
   const woodTotals = {section:0, gate:0, post:0, arb_perg:0, misc:0};
   const gearTotals = {section:0, post:0, profile:0, lattice_profile:0, topper:0, bend:0, arb_perg:0, post_and_rail:0, misc:0};
   const gateTotals = {gate:0, misc:0};
@@ -2583,6 +2690,7 @@ function renderCategoryBreakdown(groups){
   wrap.innerHTML = blocks.join('');
 }
 function render(){
+  recomputeCompletedSOBatch();
   if(!['tomorrow','all','pending','done'].includes(activeView)) return;
   const q=document.getElementById('search').value.toLowerCase();
   const via=document.getElementById('f-via').value;
@@ -2683,14 +2791,21 @@ function render(){
       : someApproved
       ? `<span class="appr-check tag td">${approvedTravelers.length}/${travelers.length}</span>`
       : '';
-    const flagFull = travelers[0].flaggedMissingAt
+    const flagFull = completedSOBatch[so]
+      ? `<span class="tag tg flag-full" title="Every traveler on this SO was closed in Sage (register batch ${completedSOBatch[so]})">✔ COMPLETED · Batch ${completedSOBatch[so]}</span>`
+      : travelers[0].flaggedMissingAt
       ? `<span class="tag ta flag-full" title="Missing from the last CSV upload after every prod line on this SO was covered — possibly completed or removed">POSSIBLY COMPLETED</span>`
       : '';
-    const flagCheck = travelers[0].flaggedMissingAt
+    const flagCheck = completedSOBatch[so]
+      ? `<span class="tag tg flag-check" title="Completed — register batch ${completedSOBatch[so]}">✔</span>`
+      : travelers[0].flaggedMissingAt
       ? `<span class="tag ta flag-check" title="Missing from the last CSV upload after every prod line on this SO was covered — possibly completed or removed">⚠</span>`
       : '';
     const printedFull = soLabelPrintedBadge(so);
     const printedCheck = soLabelPrintedBadge(so,'check');
+    const revAt = travelers.map(t=>t.revisedAt).filter(Boolean).sort().pop();
+    const revFull = revAt ? `<span class="tag ta prn-full" title="Revised ${fmtDate(revAt)} - order changed after a CSV upload (see the order log)">↻ Revised</span>` : '';
+    const revCheck = revAt ? `<span class="tag ta prn-check" title="Revised ${fmtDate(revAt)}">↻</span>` : '';
  
     const canEditDate = document.body.classList.contains('can-edit-date');
     const dateCell = canEditDate
@@ -2702,7 +2817,7 @@ function render(){
          </td>`
       : `<td><span class="mono" style="color:var(--text);font-size:13px;font-weight:600">${fmtDate(soShipRaw)}</span></td>`;
  
-    html+=`<tr id="so-row-${so}" class="so-row ${hasPic?'done':'pending'}${(approvalFull||flagFull||printedFull)?' no-bb':''}" onclick="handleSORowClick('${so}')" onmouseenter="linkedHover('${so}',true)" onmouseleave="linkedHover('${so}',false)">
+    html+=`<tr id="so-row-${so}" class="so-row ${hasPic?'done':'pending'}${(approvalFull||flagFull||printedFull||revFull)?' no-bb':''}" onclick="handleSORowClick('${so}')" onmouseenter="linkedHover('${so}',true)" onmouseleave="linkedHover('${so}',false)">
       <td><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
         <span class="chevron${isOpen?' open':''}"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg></span>
         <span class="so-num-text" style="font-family:var(--mono);font-size:13px;font-weight:600;color:var(--text)">${so}</span>
@@ -2720,13 +2835,14 @@ function render(){
       </div></td>
     </tr>`;
 
-    if(approvalFull||flagFull||printedFull){
+    if(approvalFull||flagFull||printedFull||revFull){
       html+=`<tr id="so-badges-${so}" class="so-row so-badges-row ${hasPic?'done':'pending'}" onclick="handleSORowClick('${so}')" onmouseenter="linkedHover('${so}',true)" onmouseleave="linkedHover('${so}',false)">
         <td colspan="6" style="padding:0 12px 8px 0;border-top:none" class="so-badges-cell">
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
             ${printedFull}${printedCheck}
             ${approvalFull}${approvalCheck}
             ${flagFull}${flagCheck}
+            ${revFull}${revCheck}
           </div>
         </td>
       </tr>`;
@@ -2768,7 +2884,7 @@ function buildSODetailRows(so, travelers, soPhotos, isMgr){
       <td data-label="Item"><span class="mono" style="${isCus(o)?'color:var(--amber)':'color:var(--text)'};font-weight:600">${o.item}</span></td>
       <td data-label="Qty" style="text-align:right;font-family:var(--mono);font-size:13px;font-weight:600;color:var(--text)">${o.qty%1===0?o.qty:o.qty.toFixed(1)}</td>
       <td data-label="Line" style="font-family:var(--mono);font-size:11px;color:var(--text3)">${o.line}</td>
-      <td>${approveBtn}</td>
+      <td>${approveBtn}${o.completedBatch?`<span class="tag tg" style="margin-left:6px" title="Closed in Sage register batch ${o.completedBatch}">Batch ${o.completedBatch}</span>`:''}</td>
     </tr>`;
   }
   html+=`<tr class="movelog-row"><td colspan="6">
@@ -2786,7 +2902,7 @@ function buildSODetailRows(so, travelers, soPhotos, isMgr){
         title="${p.filename} · ${p.uploaded_by} · ${new Date(p.uploaded_at).toLocaleString()}"
         onclick="openLB('${p.url}','${p.filename}','${p.uploaded_by||''}','${new Date(p.uploaded_at).toLocaleString()}','${p.id}','${p.storage_path||''}','${so}')">
       ${p.department?`<div style="position:absolute;bottom:-6px;left:-6px">${makeDeptPill(p.department)}</div>`:''}
-      <div class="photo-del" onclick="event.stopPropagation();askDelPhoto('${p.id}','${p.storage_path||''}','${so}','${(p.filename||'').replace(/'/g,"\\'")}')">✕</div>
+      <div class="photo-del${(currentProfile?.role==='worker' && currentProfile?.full_name && p.uploaded_by===currentProfile.full_name)?' photo-del-own':''}" onclick="event.stopPropagation();askDelPhoto('${p.id}','${p.storage_path||''}','${so}','${(p.filename||'').replace(/'/g,"\\'")}')">✕</div>
     </div>`).join('');
   html+=`<tr class="photo-row"><td colspan="6">
     <div class="photo-section">
@@ -2919,7 +3035,7 @@ async function unapproveTraveler(traveler){
  
 async function approveAllTravelers(so){
   if(currentProfile?.role !== 'manager'){ toast('Access denied','Only managers can approve travelers.','red'); return; }
-  const soTravelers = orders.filter(o => o.so === so);
+  const soTravelers = orders.filter(o => o.so === so && isOrderVisible(o));
   const unapproved = soTravelers.filter(o => !approvals[o.traveler]);
   if(!unapproved.length){ toast('Already approved','All travelers are already approved.','amber'); return; }
   try{
@@ -2947,7 +3063,7 @@ function openDeepLinkedSO(){
   const so = new URLSearchParams(location.search).get('so');
   if(!so) return;
   history.replaceState({}, '', location.pathname);
-  if(!orders.some(o=>o.so===so)) return;
+  if(!orders.some(o=>o.so===so && isOrderVisible(o))) return;
   document.getElementById('search').value='';
   document.getElementById('f-via').value='';
   const df=document.getElementById('f-date'); if(df) df.value='';
@@ -2965,6 +3081,7 @@ function handleSORowClick(so){
 }
 let currentModalSO = null;
 function openSOModal(so){
+  recomputeCompletedSOBatch();
   const travelers = orders.filter(o=>o.so===so && isOrderVisible(o));
   if(!travelers.length) return;
   currentModalSO = so;
@@ -2980,10 +3097,14 @@ function openSOModal(so){
     : someApproved
     ? `<span class="tag td">${approvedTravelers.length}/${travelers.length} approved</span>`
     : '';
-  const flaggedBadge = t0.flaggedMissingAt
+  const flaggedBadge = completedSOBatch[so]
+    ? `<span class="tag tg" title="Every traveler on this SO was closed in Sage">✔ COMPLETED · Batch ${completedSOBatch[so]}</span>`
+    : t0.flaggedMissingAt
     ? `<span class="tag ta" title="Missing from the last CSV upload after every prod line on this SO was covered — possibly completed or removed">POSSIBLY COMPLETED</span>`
     : '';
   const printedBadge = soLabelPrintedBadge(so);
+  const revAtM = travelers.map(t=>t.revisedAt).filter(Boolean).sort().pop();
+  const revisedBadge = revAtM ? `<span class="tag ta" title="Order changed after a CSV upload (see the order log)">↻ Revised ${fmtDate(revAtM)}</span>` : '';
   const hasWoodTravelers = activeDepts.has('wood') && orders.some(o=>o.so===so && o.department==='wood');
   const hasGateTravelers = activeDepts.has('gate') && orders.some(o=>o.so===so && o.department==='gate');
   const hasGearTravelers = activeDepts.has('gear') && orders.some(o=>o.so===so && o.department==='gear');
@@ -3001,6 +3122,7 @@ function openSOModal(so){
       <span class="mono" style="font-size:13px;font-weight:600;color:var(--text)">${fmtDate(t0.soShipRaw)}</span>
       ${approvalBadge}
       ${flaggedBadge}
+      ${revisedBadge}
       ${isMgr && !allApproved ? `<button class="approve-btn" onclick="confirmColorThenApproveAll('${so}')" style="font-size:11px;padding:4px 9px">Approve all</button>` : ''}
     </div>` : `
     <div class="so-modal-header-desktop">
@@ -3020,7 +3142,7 @@ function openSOModal(so){
           <span class="so-modal-eyebrow">Ship Date</span>
           <span class="mono so-modal-ship-date">${fmtDate(t0.soShipRaw)}</span>
         </div>
-        <div class="so-modal-header-status">${approvalBadge}${flaggedBadge}${printedBadge}</div>
+        <div class="so-modal-header-status">${approvalBadge}${flaggedBadge}${printedBadge}${revisedBadge}</div>
         <div style="display:flex;align-items:center;gap:8px;margin-left:auto">
           ${printLabelBtn}
           ${isMgr && !allApproved ? `<button class="approve-btn" onclick="confirmColorThenApproveAll('${so}')" style="font-size:11px;padding:4px 9px">Approve all</button>` : ''}
@@ -3209,9 +3331,13 @@ async function logActivity(action, so, detail){
 // time the row/modal opens rather than preloaded with everything else —
 // activity_log grows unbounded and most orders are never expanded, so
 // there's no reason to pull it all up front like photos/comments are.
+// Revision rows carry a department; show only those for departments currently toggled on.
+function moveLogRowsFor(so){
+  return (moveLogCache[so] || []).filter(r=> r.action!=='revision' || !r.department || activeDepts.has(r.department));
+}
 async function loadMoveLogForSO(so){
   try{
-    const rows = await sbGet('activity_log', `so=eq.${so}&action=eq.date_change&order=created_at.desc`);
+    const rows = await sbGet('activity_log', `so=eq.${so}&action=in.(date_change,revision)&order=created_at.desc`);
     moveLogCache[so] = rows;
     renderMoveLogSummary(so);
   } catch(e){
@@ -3222,12 +3348,16 @@ async function loadMoveLogForSO(so){
 function renderMoveLogSummary(so){
   const el = document.getElementById('movelog-summary-'+so);
   if(!el) return; // row was collapsed again before the fetch finished
-  const rows = moveLogCache[so] || [];
-  el.textContent = rows.length ? `Moved ${rows.length} time${rows.length>1?'s':''} — click to view` : 'No date changes yet';
+  const rows = moveLogRowsFor(so);
+  const nMoves = rows.filter(r=>r.action==='date_change').length, nRevs = rows.length - nMoves;
+  const parts = [];
+  if(nMoves) parts.push(`Moved ${nMoves} time${nMoves>1?'s':''}`);
+  if(nRevs) parts.push(`Revised ${nRevs} time${nRevs>1?'s':''}`);
+  el.textContent = rows.length ? parts.join(' · ') + ' — click to view' : 'No changes yet';
   el.style.cursor = rows.length ? 'pointer' : 'default';
 }
 function toggleMoveLog(so){
-  const rows = moveLogCache[so] || [];
+  const rows = moveLogRowsFor(so);
   if(!rows.length) return;
   const listEl = document.getElementById('movelog-list-'+so);
   if(!listEl) return;
@@ -3273,6 +3403,7 @@ function renderLog(){
     approved:     {label:'Approved',         cls:'tb', icon:'✓'},
     unapproved:   {label:'Approval removed', cls:'td', icon:'↩'},
     date_change:  {label:'Date changed',     cls:'ta', icon:'📅'},
+    revision:     {label:'Order revised',    cls:'ta', icon:'↻'},
   };
  
   // Group by date
@@ -3678,11 +3809,18 @@ async function doDeletePhoto(){
   const btn=document.getElementById('confirm-photo-yes');
   btn.disabled=true; btn.textContent='Deleting…';
   try{
+    // Delete the database row FIRST: for a worker the database checks ownership through the stored
+    // file, so the file must still exist. Ask for the deleted row back to confirm it really happened
+    // (a refused delete is otherwise a silent no-op).
+    const dr = await fetch(`${SUPA_URL}/rest/v1/photos?id=eq.${pendingDelPhotoId}`,
+      {method:'DELETE',headers:{...H(),'Prefer':'return=representation'}});
+    if(!dr.ok) throw new Error(await dr.text());
+    const goneRows = await dr.json();
+    if(!goneRows.length) throw new Error('You can only delete photos that you uploaded yourself.');
     if(pendingDelStoragePath){
       await fetch(`${SUPA_URL}/storage/v1/object/${BUCKET}/${pendingDelStoragePath}`,
         {method:'DELETE',headers:{'apikey':ANON_KEY,'Authorization':'Bearer '+(accessToken||ANON_KEY)}}).catch(()=>{});
     }
-    await sbDelete('photos', pendingDelPhotoId);
     await logActivity('photo_delete', pendingDelSO, `Deleted "${pendingDelFilename||'photo'}"`);
     for(const so of Object.keys(photos)) photos[so]=photos[so].filter(p=>p.id!==pendingDelPhotoId);
     closeConfirmPhoto(); closeLB(); updateAll(); render();
@@ -3698,7 +3836,7 @@ function openLB(url,filename,by,ts,pid,sp,so){
   document.getElementById('lb-img').src=url;
   document.getElementById('lb-meta').textContent=`${filename} · uploaded by ${by} · ${ts}`;
   const act=document.getElementById('lb-actions');
-  if(currentProfile?.role==='manager'){
+  if(currentProfile?.role==='manager' || (currentProfile?.role==='worker' && currentProfile?.full_name && by===currentProfile.full_name)){
     act.innerHTML=`<button class="btn danger" onclick="askDelPhoto('${pid}','${sp}','${so}','${(filename||'').replace(/'/g,"\\'")}')">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6M9 6V4h6v2"/></svg>
       Delete photo</button>`;
@@ -3965,8 +4103,13 @@ function classifyGearItem(itemCode){
 function generatePrintReport(startDate, endDate, deptSet){
   if(currentProfile?.role!=='manager'){ toast('Access denied','Only managers can print reports.','red'); return; }
 
+  // "Completed" for the report is judged on the departments chosen in the report modal.
+  const printCompleted = {};
+  { const by = {};
+    orders.forEach(o=>{ if((!o.department || deptSet.has(o.department)) || (!!o.deptExtra && deptSet.has(o.deptExtra))) (by[o.so] = by[o.so] || []).push(o); });
+    for(const so in by) if(by[so].every(t=>t.completedBatch)) printCompleted[so] = true; }
   const filtered = orders.filter(o=>{
-    if(o.flaggedMissingAt) return false; // possibly-completed — excluded entirely, not just uncounted
+    if(o.flaggedMissingAt || printCompleted[o.so]) return false; // possibly-completed / completed — excluded entirely, not just uncounted
     if(!o.soShipRaw || o.soShipRaw < startDate || o.soShipRaw > endDate) return false;
     const primaryVisible = !o.department || deptSet.has(o.department);
     const extraVisible = !!o.deptExtra && deptSet.has(o.deptExtra);
@@ -4249,6 +4392,7 @@ ${(() => { let lastWoodDayShown = null; let lastGearDayShown = null; let lastGat
 // ── Print label (Wood only, per SO, skid-based) ────────────────────────────────
 let labelSO = null;
 let labelDept = 'wood';
+let labelFormat = 'wood'; // which label LOOK (size/text scale) to use; equals labelDept except a Gear order can use the Gate look
 let labelDeptTravelers = [];
 let labelSkids = []; // [{ items: [{traveler,item,desc,qty}] }]
 let labelEditingItems = new Set(); // keys "si-ii" currently in wording-edit mode
@@ -4292,6 +4436,8 @@ function setPrintLabelDept(dept){
   const cap = LABEL_DEPT_CONFIG[dept].cap;
   const statusEl = document.getElementById('pl-print-status');
   const prevPrint = labelPrints[labelSO+'|'+dept];
+  labelFormat = (dept==='gear' && prevPrint && (prevPrint.skids||[])[0]?.fmt==='gate') ? 'gate' : dept;
+  updateLabelFormatToggle();
   labelSkids = [];
   if(prevPrint){
     // Reconcile the saved layout (including any manual wording/qty edits) against the
@@ -4321,11 +4467,25 @@ function setPrintLabelDept(dept){
       });
     }
     labelSkids = savedSkids.filter(sk=>sk.items.length);
+    // Departments that can't combine items (Gate) always get one skid per `cap` units, even when
+    // the saved layout (or a qty change) put several units on one skid.
+    let resplit = false;
+    if(!LABEL_DEPT_CONFIG[dept].allowCombine){
+      const flat = [];
+      labelSkids.forEach(sk=>sk.items.forEach(it=>{
+        if(it.qty <= cap){ flat.push({items:[{...it}]}); if(sk.items.length>1) resplit = true; return; }
+        resplit = true;
+        let rem = it.qty;
+        while(rem > 0){ const q = Math.min(cap, rem); flat.push({items:[{...it, qty:q}]}); rem -= q; }
+      }));
+      labelSkids = flat;
+    }
     document.getElementById('pl-cust').value = prevPrint.cust || custMatch || '';
     document.getElementById('pl-po').value = prevPrint.po || '';
     const when = new Date(prevPrint.printed_at).toLocaleString([], {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'});
     statusEl.innerHTML = `🖨 Already printed for ${DEPT_META[dept]?.label||dept} on ${when} by ${escapeHtml(prevPrint.printed_by||'worker')} — this will be a reprint.`
-      + (changed ? ` <strong style="color:var(--amber)">Quantities have changed since then — review the skids below.</strong>` : '');
+      + (changed ? ` <strong style="color:var(--amber)">Quantities have changed since then — review the skids below.</strong>` : '')
+      + (resplit ? ` <strong style="color:var(--amber)">Split into one skid per gate.</strong>` : '');
     statusEl.style.display = '';
   } else {
     document.getElementById('pl-cust').value = custMatch || '';
@@ -4402,6 +4562,21 @@ function setPrintLabelDept(dept){
   document.getElementById('pl-err').textContent = '';
   renderPrintLabelSkids();
 }
+function updateLabelFormatToggle(){
+  const wrap = document.getElementById('pl-format-picker');
+  if(!wrap) return;
+  wrap.style.display = labelDept==='gear' ? '' : 'none';
+  document.getElementById('pl-format-gear-btn')?.classList.toggle('primary', labelFormat!=='gate');
+  document.getElementById('pl-format-gate-btn')?.classList.toggle('primary', labelFormat==='gate');
+}
+function setLabelFormat(fmt){
+  if(labelDept!=='gear' || labelFormat===fmt) return;
+  labelFormat = fmt;
+  // hand-set text sizes were tuned for the other label size, so return every item to automatic
+  labelSkids.forEach(sk=>sk.items.forEach(it=>{ delete it.px; }));
+  updateLabelFormatToggle();
+  renderPrintLabelSkids();
+}
 function closePrintLabelModal(){ document.getElementById('print-label-modal').classList.remove('open'); }
 
 function renderPrintLabelSkids(){
@@ -4428,6 +4603,7 @@ function renderPrintLabelSkids(){
       <div style="display:flex;gap:6px;align-items:center;margin-bottom:4px">
         <span style="flex:1;font-size:12px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(it.item)} · ${escapeHtml(it.desc)}</span>
         <input type="number" min="0" step="1" value="${it.qty}" class="modal-input" style="width:64px;padding:4px 6px" onchange="updateSkidItemQty(${si},${ii},this.value)">
+        <input type="number" min="6" max="60" step="0.5" value="${it.px>0 ? it.px : Math.round(itemDefaultPx(si,ii)*10)/10}" class="modal-input" style="width:56px;padding:4px 4px;font-size:11px${it.px>0?';border-color:var(--accent)':''}" title="Text size in px for this item (clear the box to go back to automatic)" onchange="updateSkidItemPx(${si},${ii},this.value)">
         <button class="btn" style="padding:2px 8px;font-size:11px" onclick="toggleEditSkidItem(${si},${ii})" title="Edit wording">✎</button>
         <select class="modal-input" style="width:auto;padding:2px 2px;font-size:11px" title="Move to another skid" onchange="moveItemToSkid(${si},${ii},this.value);this.value=''">
           <option value="">Move</option>
@@ -4452,8 +4628,32 @@ function renderPrintLabelSkids(){
   renderPrintLabelPreview();
 }
 function labelScaleForItemCount(n){
-  const table = {1:1, 2:0.8, 3:0.66, 4:0.56, 5:0.48, 6:0.42, 7:0.37};
+  // Gear and Wood labels (same 4x6 layout) get larger item text at 2-4 items (they had a lot of
+  // empty room); 2-7 were then raised another 15%. Gate keeps the original table.
+  const table = (typeof labelFormat!=='undefined' && (labelFormat==='gear' || labelFormat==='wood'))
+    ? {1:1, 2:1.15, 3:0.85, 4:0.75, 5:0.55, 6:0.48, 7:0.43}
+    : {1:1, 2:0.8, 3:0.66, 4:0.56, 5:0.48, 6:0.42, 7:0.37};
   return table[n] || 0.37;
+}
+// Per-item text size override (px of the item code/qty; description scales with it).
+// Items without `px` use the automatic size from the item-count ladder.
+function itemDefaultPx(si,ii){
+  const n = labelSkids[si].items.length;
+  const start = Math.floor(ii/MAX_ITEMS_PER_LABEL_PAGE)*MAX_ITEMS_PER_LABEL_PAGE;
+  const len = Math.min(MAX_ITEMS_PER_LABEL_PAGE, n - start);
+  return 30 * labelScaleForItemCount(len) * LABEL_DEPT_CONFIG[labelFormat].printItemScale;
+}
+function itemScaleStyle(it, deptItemScale){
+  const px = parseFloat(it.px);
+  if(!(px>0)) return '';
+  return ` style="--lbl-scale:${(px/(30*deptItemScale)).toFixed(4)}"`;
+}
+function updateSkidItemPx(si,ii,val){
+  const it = labelSkids[si].items[ii];
+  const v = parseFloat(val);
+  if(!(v>0)) delete it.px;                         // cleared = back to automatic
+  else it.px = Math.min(60, Math.max(6, v));
+  renderPrintLabelSkids();
 }
 function custNameFontSize(name){
   const len = (name||'').length;
@@ -4478,7 +4678,7 @@ function viaColorWord(via, location){
   if(via==='INSTALL/REPAIR') return 'BLACK';
   if(via==='PICK UP'){
     const loc=(location||'').toLowerCase();
-    if(loc.includes('amityville')) return 'BLUE';
+    if(loc.includes('amityville')) return (labelDept==='gear' || labelDept==='gate') ? 'BLACK' : 'BLUE'; // Gear and Gate print Amendolas pick up as BLACK
     return 'ORANGE';
   }
   return '';
@@ -4492,11 +4692,11 @@ function renderPrintLabelPreview(){
   const wrap = document.getElementById('pl-preview');
   const t0 = labelDeptTravelers[0];
   if(!wrap || !t0) return;
-  const cfg = LABEL_DEPT_CONFIG[labelDept];
+  const cfg = LABEL_DEPT_CONFIG[labelFormat];
   const wrapW = cfg.widthIn*72, wrapH = cfg.heightIn*72; // 96px/in * 0.75 scale
   const cust = document.getElementById('pl-cust')?.value.trim() || '';
   const po = document.getElementById('pl-po')?.value.trim() || '';
-  const custLineSize = labelDept==='gate' ? cfg.lineSizePreview : custNameFontSize(cust);
+  const custLineSize = labelFormat==='gate' ? cfg.lineSizePreview : custNameFontSize(cust);
   const shipDate = fmtDate(t0.soShipRaw);
   const validSkids = labelSkids.filter(s=>s.items.length);
   const total = validSkids.length;
@@ -4504,7 +4704,7 @@ function renderPrintLabelPreview(){
   validSkids.forEach((skid,i)=>{
     chunkSkidItems(skid.items).forEach(chunk=>{
       const itemsHtml = chunk.map(it=>`
-      <div class="lbl-item">
+      <div class="lbl-item"${itemScaleStyle(it, cfg.previewItemScale)}>
         <div class="lbl-item-row">
           <div class="lbl-item-code">${escapeHtml(it.item)}</div>
           <div class="lbl-item-qty">${(parseFloat(it.qty)||0).toFixed(2)}</div>
@@ -4520,8 +4720,8 @@ function renderPrintLabelPreview(){
       <div class="lbl-divider"></div>
       ${itemsHtml}
       <div class="lbl-bottom-row">
-        ${LABEL_DEPT_CONFIG[labelDept].colorTagStyle==='text'
-          ? `<div class="lbl-color-tag lbl-color-tag-text">${viaColorWord(t0.via, t0.location)}</div>`
+        ${LABEL_DEPT_CONFIG[labelFormat].colorTagStyle==='text'
+          ? `<div class="lbl-color-tag lbl-color-tag-text${labelFormat==='gate'?' lbl-color-tag-plain':''}">${viaColorWord(t0.via, t0.location)}</div>`
           : `<div class="lbl-color-tag" style="background:${viaColorHex(t0.via, t0.location)}"></div>`}
         <div class="lbl-page">${i+1} of ${total}</div>
       </div>
@@ -4593,7 +4793,7 @@ async function doPrintLabels(){
   if(!validSkids.length){ err.textContent = 'Add at least one item to a skid.'; return; }
   err.textContent = '';
   generateLabelDocument(labelSO, cust, po, validSkids);
-  const record = {so:labelSO, department:labelDept, printed_by:currentProfile?.full_name||'worker', printed_at:new Date().toISOString(), cust, po, skids:validSkids};
+  const record = {so:labelSO, department:labelDept, printed_by:currentProfile?.full_name||'worker', printed_at:new Date().toISOString(), cust, po, skids:(labelDept==='gear' && labelFormat==='gate') ? validSkids.map(sk=>({...sk, fmt:'gate'})) : validSkids};
   try{
     const r = await fetch(`${SUPA_URL}/rest/v1/label_prints?on_conflict=so,department`, {
       method:'POST', headers:{...H(),'Prefer':'resolution=merge-duplicates,return=minimal'},
@@ -4606,15 +4806,15 @@ async function doPrintLabels(){
 }
 function generateLabelDocument(so, cust, po, skids){
   const t0 = labelDeptTravelers[0];
-  const cfg = LABEL_DEPT_CONFIG[labelDept];
+  const cfg = LABEL_DEPT_CONFIG[labelFormat];
   const shipDate = fmtDate(t0.soShipRaw);
-  const custLineSize = labelDept==='gate' ? cfg.lineSizePrint : custNameFontSize(cust);
+  const custLineSize = labelFormat==='gate' ? cfg.lineSizePrint : custNameFontSize(cust);
   const total = skids.length;
   let pages = '';
   skids.forEach((skid,i)=>{
     chunkSkidItems(skid.items).forEach(chunk=>{
       const itemsHtml = chunk.map(it=>`
-      <div class="lbl-item">
+      <div class="lbl-item"${itemScaleStyle(it, cfg.printItemScale)}>
         <div class="lbl-item-row">
           <div class="lbl-item-code">${escapeHtml(it.item)}</div>
           <div class="lbl-item-qty">${it.qty.toFixed(2)}</div>
@@ -4630,8 +4830,8 @@ function generateLabelDocument(so, cust, po, skids){
       <div class="lbl-divider"></div>
       ${itemsHtml}
       <div class="lbl-bottom-row">
-        ${LABEL_DEPT_CONFIG[labelDept].colorTagStyle==='text'
-          ? `<div class="lbl-color-tag lbl-color-tag-text">${viaColorWord(t0.via, t0.location)}</div>`
+        ${LABEL_DEPT_CONFIG[labelFormat].colorTagStyle==='text'
+          ? `<div class="lbl-color-tag lbl-color-tag-text${labelFormat==='gate'?' lbl-color-tag-plain':''}">${viaColorWord(t0.via, t0.location)}</div>`
           : `<div class="lbl-color-tag" style="background:${viaColorHex(t0.via, t0.location)}"></div>`}
         <div class="lbl-page">${i+1} of ${total}</div>
       </div>
@@ -4658,6 +4858,7 @@ body{background:#fff;color:#000}
 .lbl-bottom-row{position:absolute;bottom:0.22in;left:0.22in;right:0.22in;display:flex;align-items:stretch;gap:8px;height:32px}
 .lbl-color-tag{flex:1;border:2px solid #000;border-radius:2px}
 .lbl-color-tag-text{display:flex;align-items:center;justify-content:center;font-weight:900;font-size:16px;letter-spacing:1px;color:#000;background:transparent}
+.lbl-color-tag-plain{border:none}
 .lbl-bottom-row .lbl-page{display:flex;align-items:center;justify-content:center;white-space:nowrap}
 </style></head><body>${pages}</body></html>`;
   const win = window.open('', '_blank');
@@ -5309,10 +5510,27 @@ function startAutoRefresh(){
         const ok = await refreshAuthToken();
         if(!ok){ await forceReauth('Session expired — please sign in again.'); return; }
       }
-      await Promise.all([loadOrders(),loadPhotos(),loadApprovals(),loadComments(),loadHolidays(),loadCustomers(),loadWoodItemTypes(),loadGearItemTypes(),loadDepartmentBatches(),loadBatchReads(),loadLabelPrints()]);updateAll();render();
+      // No data is downloaded here any more (Supabase egress). This timer only keeps the login
+      // token fresh. Data reloads on boot, the Refresh button, or returning to the app (below).
     }catch(e){}
   },60000);
 }
+// Reload data when the app comes back to the foreground, but at most once every 5 minutes,
+// so switching away and back doesn't re-download everything each time.
+let lastDataFetchAt = Date.now();
+document.addEventListener('visibilitychange', async ()=>{
+  if(document.visibilityState!=='visible' || !currentProfile || !accessToken) return;
+  if(Date.now() - lastDataFetchAt < 5*60*1000) return;
+  lastDataFetchAt = Date.now();
+  try{
+    if(sessExpiresAt && sessExpiresAt - Date.now()/1000 < 300){
+      const ok = await refreshAuthToken();
+      if(!ok){ await forceReauth('Session expired — please sign in again.'); return; }
+    }
+    await Promise.all([loadOrders(),loadPhotos(),loadApprovals(),loadComments(),loadDepartmentBatches(),loadBatchReads(),loadLabelPrints()]);
+    updateAll(); render();
+  }catch(e){}
+});
  
 // ── Loading ───────────────────────────────────────────────────────────────────
 function showLoading(m){document.getElementById('loading-text').textContent=m||'Loading…';document.getElementById('loading-overlay').classList.remove('hide');}
