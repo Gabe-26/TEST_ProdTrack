@@ -259,6 +259,7 @@ thead th{position:sticky;top:0;z-index:2;background:var(--surface);border-bottom
 .so-row.done td{background:rgba(96,208,138,0.04)}
 .so-row.done td:first-child{border-left:3px solid var(--green)}
 .so-row.pending td:first-child{border-left:3px solid var(--amber)}
+.tr-row.deleted-row td:not(:last-child){opacity:.5}
 .tr-row.approved-row td{background:rgba(96,208,138,0.04)}
 .approve-btn{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-family:var(--mono);padding:5px 10px;border-radius:5px;border:1px solid var(--border2);background:var(--surface2);color:var(--text3);cursor:pointer;transition:all 0.15s;white-space:nowrap}
 .approve-btn:hover{border-color:var(--green);color:var(--green);background:var(--green-dim)}
@@ -386,7 +387,8 @@ thead th{position:sticky;top:0;z-index:2;background:var(--surface);border-bottom
 .pl-preview-wrap{width:288px;height:432px;overflow:hidden;position:relative;border:1px solid var(--border2);border-radius:4px;background:#fff;margin-bottom:12px;flex-shrink:0}
 .pl-preview-page{position:absolute;top:0;left:0;width:4in;height:6in;padding:calc(0.22in - var(--lbl-top-reduce,5px)) 0.22in 0.22in 0.22in;box-sizing:border-box;transform:scale(0.75);transform-origin:top left;background:#fff;color:#000;font-family:Arial,Helvetica,sans-serif}
 .pl-preview-page .lbl-so{font-size:65px;font-weight:800;margin-bottom:0;letter-spacing:1px;text-align:center}
-.pl-preview-page .lbl-soc-rule{border-top:4px solid #000;margin:-14px 0 8px}
+.pl-preview-page .lbl-soc-rule{border-top:8px solid #000;margin:-14px 0 8px}
+.pl-preview-page .lbl-so-big{font-size:74px}
 .pl-preview-page .lbl-line{font-size:calc(22px * var(--lbl-dept-scale,1));font-weight:700;margin-bottom:var(--lbl-line-gap,6px);line-height:1.1}
 .pl-preview-page .lbl-cust-name{font-size:var(--lbl-line-size,22px)}
 .pl-preview-page .lbl-divider{border-top:2px solid #000;margin:calc(4px * var(--lbl-dept-scale,1)) 0 calc(8px * var(--lbl-dept-scale,1))}
@@ -607,6 +609,17 @@ thead th{position:sticky;top:0;z-index:2;background:var(--surface);border-bottom
     <div class="confirm-btns">
       <button class="btn" onclick="staleCsvRespond(false)">Cancel</button>
       <button class="btn primary" onclick="staleCsvRespond(true)">Upload anyway</button>
+    </div>
+  </div>
+</div>
+
+<div class="confirm-overlay" id="confirm-share-report">
+  <div class="confirm-card">
+    <div class="confirm-title">Check before sharing</div>
+    <div class="confirm-body" id="sw-body"></div>
+    <div class="confirm-btns">
+      <button class="btn" onclick="shareWarnRespond(false)">Cancel</button>
+      <button class="btn primary" onclick="shareWarnRespond(true)">Share anyway</button>
     </div>
   </div>
 </div>
@@ -1085,10 +1098,6 @@ thead th{position:sticky;top:0;z-index:2;background:var(--surface);border-bottom
             <option value="dept">Sort: Department</option>
             <option value="customer">Sort: Customer A-Z</option>
           </select>
-          <button class="xbtn" id="xbtn" onclick="toggleExpandAll()">
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
-            Expand all
-          </button>
           <button class="xbtn" id="cb-toggle-btn" onclick="toggleCategoryBreakdown()">
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
             Hide breakdown
@@ -1401,6 +1410,7 @@ function linkedHover(so, on){
   if(b) b.classList.toggle('hovered', on);
 }
 function soLabelPrintedBadge(so, mode){
+  if(currentProfile?.role==='production') return ''; // Production doesn't need to see label-print status
   const depts = ['wood','gate','gear'].filter(d=>labelPrints[so+'|'+d] && activeDepts.has(d));
   if(!depts.length) return '';
   const title = depts.map(d=>{
@@ -1414,8 +1424,14 @@ function soLabelPrintedBadge(so, mode){
 function isDeptVisible(department){
   return !department || activeDepts.has(department);
 }
-function isOrderVisible(o){
+// A traveler a CSV upload removed after a manager approved it stays on the SO card with a Deleted tag
+// (orders.deleted_at). It is NOT counted anywhere, so isOrderVisible() excludes it; only the SO card
+// uses isOrderVisibleInclDeleted() so the tagged row can still be shown.
+function isOrderVisibleInclDeleted(o){
   return isDeptVisible(o.department) || (!!o.deptExtra && activeDepts.has(o.deptExtra));
+}
+function isOrderVisible(o){
+  return !o.deletedAt && isOrderVisibleInclDeleted(o);
 }
 function visiblePhotosFor(so){
   return (photos[so]||[]).filter(p=>isDeptVisible(p.department));
@@ -1477,7 +1493,7 @@ function showApp(){
   document.getElementById('nav-upload').style.display  = isMgr ? 'flex' : 'none';
   document.getElementById('nav-customer-list').style.display = isMgr ? 'flex' : 'none';
   document.getElementById('nav-users').style.display   = isMgr ? 'flex' : 'none';
-  document.getElementById('nav-archive').style.display = isMgr ? 'flex' : 'none';
+  document.getElementById('nav-archive').style.display = (isMgr || isProd) ? 'flex' : 'none'; // Production can browse the Archive; restore/archive stay owner-only
   document.getElementById('nav-holidays').style.display = uname === 'zgta26' ? 'flex' : 'none';
   document.getElementById('nav-wood-codes').style.display = uname === 'zgta26' ? 'flex' : 'none';
   document.getElementById('nav-gear-codes').style.display = uname === 'zgta26' ? 'flex' : 'none';
@@ -1697,7 +1713,7 @@ async function loadOrders(){
     soShipRaw:r.so_ship, via:r.via, location:r.location||'', customer:r.customer,
     department:r.department, deptExtra:r.department_extra, flaggedMissingAt:r.flagged_missing_at,
     completedBatch:r.completed_batch||null, completedAt:r.completed_at||null,
-    revisedAt:r.revised_at||null
+    revisedAt:r.revised_at||null, deletedAt:r.deleted_at||null
   }));
   recomputeCompletedSOBatch();
 }
@@ -2282,6 +2298,7 @@ async function performCSVUpload(parsed, newReportTime, prodLineTimes, st){
     st.textContent='Uploading '+parsed.length+' travelers…';
     try{
       await loadOrders(); // fresh baseline for change detection (data no longer auto-refreshes)
+      await loadApprovals(); // fresh approvals: an approved traveler is never removed by an upload
       const prevSODates={};
       orders.forEach(o=>{if(o.so&&o.soShipRaw) prevSODates[o.so]=o.soShipRaw;});
 
@@ -2306,13 +2323,39 @@ async function performCSVUpload(parsed, newReportTime, prodLineTimes, st){
         if(!csvSOMap[r.so]) csvSOMap[r.so]=new Set();
         csvSOMap[r.so].add(r.traveler);
       }
+      // A manager-APPROVED traveler is never deleted by an upload. If this report covered its prod line and
+      // it is gone from the report, it stays on the SO and is tagged Deleted (orders.deleted_at); if the report
+      // did not cover its prod line (partial report) it is simply left alone. Unapproved travelers are removed
+      // as before. A tagged traveler that shows up in a later report gets its tag cleared.
+      const delCoveredLines = new Set(parsed.filter(r=>r.line).map(r=>r.line));
+      const keepBySO = {}, tagDeleted = [];
+      orders.forEach(o=>{
+        const inReport = csvSOMap[o.so]; if(!inReport) return;
+        const tr = String(o.traveler);
+        if(inReport.has(tr) || !approvals[tr]) return;
+        (keepBySO[o.so] = keepBySO[o.so] || []).push(tr);
+        if(!o.deletedAt && delCoveredLines.has(o.line)) tagDeleted.push(tr);
+      });
+      const cameBack = orders.filter(o=>o.deletedAt && csvSOMap[o.so] && csvSOMap[o.so].has(String(o.traveler))).map(o=>String(o.traveler));
       for(const so of Object.keys(csvSOMap)){
-        const csvTravelers=[...csvSOMap[so]].join(',');
-        // Delete DB rows for this SO whose traveler is NOT in the CSV list
+        const csvTravelers=[...csvSOMap[so], ...(keepBySO[so]||[])].join(',');
+        // Delete DB rows for this SO whose traveler is NOT in the CSV list (approved ones are kept, see above)
         await fetch(`${SUPA_URL}/rest/v1/orders?so=eq.${so}&traveler=not.in.(${csvTravelers})&completed_batch=is.null&archived=eq.false`,{
           method:'DELETE',headers:{...H(),'Prefer':'return=minimal'}
         }).catch(()=>{});
       }
+      try{
+        const stamp = (list, value) => (async()=>{
+          for(let i=0;i<list.length;i+=80){
+            const r = await fetch(`${SUPA_URL}/rest/v1/orders?traveler=in.(${list.slice(i,i+80).join(',')})`,{
+              method:'PATCH', headers:{...H(),'Prefer':'return=minimal'}, body:JSON.stringify({deleted_at:value})
+            });
+            if(!r.ok) throw new Error(await r.text());
+          }
+        })();
+        if(tagDeleted.length) await stamp(tagDeleted, new Date().toISOString());
+        if(cameBack.length) await stamp(cameBack, null);
+      }catch(e){ console.warn('Deleted-traveler tagging failed:', e.message); }
 
       // Date-change detection reflects only what was actually applied — a
       // skipped row didn't touch the DB, so it isn't a "change".
@@ -2350,7 +2393,7 @@ async function performCSVUpload(parsed, newReportTime, prodLineTimes, st){
       try{
         const norm = v => String(v==null?'':v).replace(/\s+/g,' ').trim();
         const prevBySO = {};
-        orders.forEach(o=>{ if(o.so) (prevBySO[o.so] = prevBySO[o.so] || {})[String(o.traveler)] = o; });
+        orders.forEach(o=>{ if(o.so && !o.deletedAt) (prevBySO[o.so] = prevBySO[o.so] || {})[String(o.traveler)] = o; });
         // Prod lines this report actually contained. A partial report (e.g. only line 150) says
         // nothing about travelers on other lines, so those can't be "removed" by it.
         const coveredLines = new Set(parsed.filter(r=>r.line).map(r=>r.line));
@@ -2442,7 +2485,7 @@ async function performCSVUpload(parsed, newReportTime, prodLineTimes, st){
         }
       }
       const prevSOLines={};
-      orders.forEach(o=>{ if(o.so){ if(!prevSOLines[o.so]) prevSOLines[o.so]=new Set(); if(o.line) prevSOLines[o.so].add(o.line); } });
+      orders.forEach(o=>{ if(o.so && !o.deletedAt){ if(!prevSOLines[o.so]) prevSOLines[o.so]=new Set(); if(o.line) prevSOLines[o.so].add(o.line); } });
 
       missingFromCSV=[];
       const newlyFlagged=[];
@@ -2860,9 +2903,9 @@ function render(){
     const picTag=hasPic?`<span class="tag tg">✓ ${soPhotos.length} photo${soPhotos.length>1?'s':''}</span>`:`<span class="tag ta">No photo</span>`;
  
     const isMgr = currentProfile?.role === 'manager';
-    const hasWoodTravelers = activeDepts.has('wood') && orders.some(o=>o.so===so && o.department==='wood');
-    const hasGateTravelers = activeDepts.has('gate') && orders.some(o=>o.so===so && o.department==='gate');
-    const hasGearTravelers = activeDepts.has('gear') && orders.some(o=>o.so===so && o.department==='gear');
+    const hasWoodTravelers = activeDepts.has('wood') && orders.some(o=>o.so===so && !o.deletedAt && o.department==='wood');
+    const hasGateTravelers = activeDepts.has('gate') && orders.some(o=>o.so===so && !o.deletedAt && o.department==='gate');
+    const hasGearTravelers = activeDepts.has('gear') && orders.some(o=>o.so===so && !o.deletedAt && o.department==='gear');
     // Approval status for SO
     const approvedTravelers = travelers.filter(o => approvals[o.traveler]);
     const allApproved = travelers.length > 0 && approvedTravelers.length === travelers.length;
@@ -2951,7 +2994,10 @@ function buildSODetailRows(so, travelers, soPhotos, isMgr){
   for(const o of travelers){
     const isApproved = !!approvals[o.traveler];
     const approvalInfo = approvals[o.traveler];
-    const approveBtn = isMgr
+    const isDel = !!o.deletedAt;
+    const approveBtn = isDel
+      ? (isApproved ? `<span class="tag tg" title="Approved by ${approvalInfo.approved_by}">✓ Approved</span>` : '')
+      : isMgr
       ? isApproved
         ? `<button class="approve-btn approved" onclick="event.stopPropagation();unapproveTraveler('${o.traveler}')" title="Approved by ${approvalInfo.approved_by} · Click to undo">
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
@@ -2964,13 +3010,13 @@ function buildSODetailRows(so, travelers, soPhotos, isMgr){
         ? `<span class="tag tg" title="Approved by ${approvalInfo.approved_by}">✓ Approved</span>`
         : `<span class="tag td">Pending</span>`;
  
-    html+=`<tr class="tr-row${isApproved?' approved-row':''}${collapsedTravelers.has(o.traveler)?' collapsed':''}">
+    html+=`<tr class="tr-row${isApproved?' approved-row':''}${isDel?' deleted-row':''}${collapsedTravelers.has(o.traveler)?' collapsed':''}">
       <td style="font-size:12px;font-family:var(--mono)${o.department?`;box-shadow:inset 3px 0 4px -1px var(${DEPT_COLOR_VAR[o.department]})`:''}" onclick="toggleTravelerCollapse('${o.traveler}')"><span class="trav-chev${collapsedTravelers.has(o.traveler)?'':' open'}"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg></span><span style="opacity:0.35;margin-right:5px">└</span><span style="color:var(--text);font-weight:600">${o.traveler}</span></td>
       <td style="color:var(--text);font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:220px">${o.desc}</td>
       <td data-label="Item"><span class="mono" style="${isCus(o)?'color:var(--amber)':'color:var(--text)'};font-weight:600">${o.item}</span></td>
       <td data-label="Qty" style="text-align:right;font-family:var(--mono);font-size:13px;font-weight:600;color:var(--text)">${o.qty%1===0?o.qty:o.qty.toFixed(1)}</td>
       <td data-label="Line" style="font-family:var(--mono);font-size:11px;color:var(--text3)">${o.line}</td>
-      <td>${approveBtn}${o.completedBatch?`<span class="tag tg" style="margin-left:6px" title="Closed in Sage register batch ${o.completedBatch}">Batch ${o.completedBatch}</span>`:''}</td>
+      <td>${approveBtn}${isDel?`<span class="tag tr" style="margin-left:6px" title="Removed from the Sage report on ${new Date(o.deletedAt).toLocaleDateString()}">Deleted</span>`:''}${o.completedBatch?`<span class="tag tg" style="margin-left:6px" title="Closed in Sage register batch ${o.completedBatch}">Batch ${o.completedBatch}</span>`:''}</td>
     </tr>`;
   }
   html+=`<tr class="movelog-row"><td colspan="6">
@@ -2978,9 +3024,9 @@ function buildSODetailRows(so, travelers, soPhotos, isMgr){
     <div id="movelog-list-${so}" class="hidden" style="margin:2px 0 8px;padding-left:2px"></div>
   </td></tr>`;
   const visiblePhotos = (soPhotos||[]).filter(p=>isDeptVisible(p.department));
-  const deptsPresent = [...new Set(travelers.map(t=>t.department).filter(Boolean))];
+  const deptsPresent = [...new Set(travelers.filter(t=>!t.deletedAt).map(t=>t.department).filter(Boolean))];
   const zoneDepts = deptsPresent.length ? deptsPresent : [null];
-  const commentDeptsPresent = [...new Set(travelers.flatMap(t=>[t.department,t.deptExtra]).filter(Boolean))];
+  const commentDeptsPresent = [...new Set(travelers.filter(t=>!t.deletedAt).flatMap(t=>[t.department,t.deptExtra]).filter(Boolean))];
   const commentZoneDepts = commentDeptsPresent.length ? commentDeptsPresent : [null];
   const thumbs=visiblePhotos.map(p=>`
     <div class="photo-thumb-wrap">
@@ -3168,7 +3214,8 @@ function handleSORowClick(so){
 let currentModalSO = null;
 function openSOModal(so){
   recomputeCompletedSOBatch();
-  const travelers = orders.filter(o=>o.so===so && isOrderVisible(o));
+  const allT = orders.filter(o=>o.so===so && isOrderVisibleInclDeleted(o)); // includes Deleted-tagged travelers (display only)
+  const travelers = allT.filter(o=>!o.deletedAt);
   if(!travelers.length) return;
   currentModalSO = so;
   const soPhotos = photos[so]||[];
@@ -3191,9 +3238,9 @@ function openSOModal(so){
   const printedBadge = soLabelPrintedBadge(so);
   const revAtM = travelers.map(t=>t.revisedAt).filter(Boolean).sort().pop();
   const revisedBadge = revAtM ? `<span class="tag ta" title="Order changed after a CSV upload (see the order log)">↻ Revised ${fmtDate(revAtM)}</span>` : '';
-  const hasWoodTravelers = activeDepts.has('wood') && orders.some(o=>o.so===so && o.department==='wood');
-  const hasGateTravelers = activeDepts.has('gate') && orders.some(o=>o.so===so && o.department==='gate');
-  const hasGearTravelers = activeDepts.has('gear') && orders.some(o=>o.so===so && o.department==='gear');
+  const hasWoodTravelers = activeDepts.has('wood') && orders.some(o=>o.so===so && !o.deletedAt && o.department==='wood');
+  const hasGateTravelers = activeDepts.has('gate') && orders.some(o=>o.so===so && !o.deletedAt && o.department==='gate');
+  const hasGearTravelers = activeDepts.has('gear') && orders.some(o=>o.so===so && !o.deletedAt && o.department==='gear');
   const printLabelBtn = isMgr && (hasWoodTravelers||hasGateTravelers||hasGearTravelers)
     ? `<button class="btn print-label-btn" onclick="openPrintLabelModal('${so}')" style="font-size:11px;padding:4px 9px">Print label</button>`
     : '';
@@ -3235,7 +3282,7 @@ function openSOModal(so){
         </div>
       </div>
     </div>`;
-  document.getElementById('so-modal-body').innerHTML = `<table style="width:100%;border-collapse:collapse"><tbody>${buildSODetailRows(so, travelers, soPhotos, isMgr)}</tbody></table>`;
+  document.getElementById('so-modal-body').innerHTML = `<table style="width:100%;border-collapse:collapse"><tbody>${buildSODetailRows(so, allT, soPhotos, isMgr)}</tbody></table>`;
   const modalCard = document.getElementById('so-modal-card');
   if(isMobileLayout()){
     modalCard.style.maxWidth = '700px';
@@ -3960,12 +4007,36 @@ window.addEventListener('mousemove', e=>{
 window.addEventListener('mouseup', ()=>{ lbDragging=false; document.getElementById('lb-img').classList.remove('dragging'); });
  
 // ── Share report ──────────────────────────────────────────────────────────────
-function generateReport(){
+// Share Report scope: tomorrow's orders in the toggled-on departments, minus any SO that is
+// COMPLETED (every visible traveler tagged) or POSSIBLY COMPLETED. Also works out what to warn about.
+function shareReportPlan(nextDays){
+  recomputeCompletedSOBatch();
+  const all = orders.filter(o => o.soShipRaw && nextDays.includes(o.soShipRaw) && isOrderVisible(o));
+  const groups = groupBySO(all.filter(o => !o.flaggedMissingAt && !completedSOBatch[o.so]));
+  const unapproved = groups.filter(g=>g.travelers.some(t=>!approvals[t.traveler]))
+    .map(g=>({so:g.so, a:g.travelers.filter(t=>approvals[t.traveler]).length, n:g.travelers.length}));
+  const noPhoto = groups.filter(g=>!(photos[g.so]||[]).length).map(g=>g.so);
+  return {allCount: all.length, groups, unapproved, noPhoto};
+}
+function showShareWarnModal(plan){
+  const block = (title, items) => `<div style="margin-bottom:12px"><div style="font-weight:700;color:var(--text)">${title}</div><div class="mono" style="font-size:12px;color:var(--text2);margin-top:4px;max-height:110px;overflow:auto">${items.map(escapeHtml).join(', ')}</div></div>`;
+  let h='';
+  if(plan.unapproved.length) h += block(plan.unapproved.length+(plan.unapproved.length===1?' order is':' orders are')+' not fully approved', plan.unapproved.map(u=>u.so+' ('+u.a+'/'+u.n+')'));
+  if(plan.noPhoto.length) h += block(plan.noPhoto.length+(plan.noPhoto.length===1?' order has':' orders have')+' no photo', plan.noPhoto);
+  document.getElementById('sw-body').innerHTML = h;
+  document.getElementById('confirm-share-report').classList.add('open');
+}
+function shareWarnRespond(confirmed){
+  document.getElementById('confirm-share-report').classList.remove('open');
+  if(confirmed) generateReport(true);
+}
+function generateReport(skipWarn){
   if(currentProfile?.role!=='manager'){ toast('Access denied','Only managers can share reports.','red'); return; }
   const nextDays = getNextWorkingDays();
-  const tomorrowOrders = orders.filter(o => o.soShipRaw && nextDays.includes(o.soShipRaw) && isOrderVisible(o));
-  const groups = groupBySO(tomorrowOrders);
-  if(!groups.length){ toast('No orders','No orders found for tomorrow.','amber'); return; }
+  const plan = shareReportPlan(nextDays);
+  const groups = plan.groups;
+  if(!groups.length){ toast('No orders', plan.allCount ? 'Every order for tomorrow is completed or possibly completed.' : 'No orders found for tomorrow.','amber'); return; }
+  if(skipWarn!==true && (plan.unapproved.length || plan.noPhoto.length)){ showShareWarnModal(plan); return; }
  
   const soData = groups.map(({so, travelers}) => {
     const soPhotos = photos[so] || [];
@@ -4214,10 +4285,10 @@ function generatePrintReport(startDate, endDate, deptSet){
   // "Completed" for the report is judged on the departments chosen in the report modal.
   const printCompleted = {};
   { const by = {};
-    orders.forEach(o=>{ if((!o.department || deptSet.has(o.department)) || (!!o.deptExtra && deptSet.has(o.deptExtra))) (by[o.so] = by[o.so] || []).push(o); });
+    orders.forEach(o=>{ if(!o.deletedAt && ((!o.department || deptSet.has(o.department)) || (!!o.deptExtra && deptSet.has(o.deptExtra)))) (by[o.so] = by[o.so] || []).push(o); });
     for(const so in by) if(by[so].every(t=>t.completedBatch)) printCompleted[so] = true; }
   const filtered = orders.filter(o=>{
-    if(o.flaggedMissingAt || printCompleted[o.so]) return false; // possibly-completed / completed — excluded entirely, not just uncounted
+    if(o.deletedAt || o.flaggedMissingAt || printCompleted[o.so]) return false; // Deleted travelers, possibly-completed / completed — excluded entirely, not just uncounted
     if(!o.soShipRaw || o.soShipRaw < startDate || o.soShipRaw > endDate) return false;
     const primaryVisible = !o.department || deptSet.has(o.department);
     const extraVisible = !!o.deptExtra && deptSet.has(o.deptExtra);
@@ -4513,9 +4584,9 @@ const LABEL_DEPT_CONFIG = {
 function openPrintLabelModal(so){
   if(currentProfile?.role!=='manager') return;
   const travelersByDept = {
-    wood: activeDepts.has('wood') ? orders.filter(o=>o.so===so && o.department==='wood') : [],
-    gate: activeDepts.has('gate') ? orders.filter(o=>o.so===so && o.department==='gate') : [],
-    gear: activeDepts.has('gear') ? orders.filter(o=>o.so===so && o.department==='gear') : []
+    wood: activeDepts.has('wood') ? orders.filter(o=>o.so===so && !o.deletedAt && o.department==='wood') : [],
+    gate: activeDepts.has('gate') ? orders.filter(o=>o.so===so && !o.deletedAt && o.department==='gate') : [],
+    gear: activeDepts.has('gear') ? orders.filter(o=>o.so===so && !o.deletedAt && o.department==='gear') : []
   };
   const availableDepts = Object.keys(travelersByDept).filter(d=>travelersByDept[d].length);
   if(!availableDepts.length){ toast('No Wood/Gate/Gear travelers', 'This SO has no Wood, Gate, or Gear department travelers.', 'amber'); return; }
@@ -4820,7 +4891,7 @@ function renderPrintLabelPreview(){
         <div class="lbl-item-desc">${escapeHtml(it.desc)}</div>
       </div>`).join('');
       html += `<div class="pl-preview-wrap" style="width:${wrapW}px;height:${wrapH}px"><div class="pl-preview-page" style="width:${cfg.widthIn}in;height:${cfg.heightIn}in;--lbl-scale:${labelScaleForItemCount(chunk.length)};--lbl-dept-scale:${cfg.previewScale};--lbl-item-dept-scale:${cfg.previewItemScale};--lbl-top-reduce:${cfg.topReducePx}px;--lbl-line-gap:${cfg.lineGapPx}px;--lbl-line-size:${custLineSize}px">
-      <div class="lbl-so">${escapeHtml(String(labelSO).padStart(7,'0'))}</div>
+      <div class="lbl-so${cfg.socRule?' lbl-so-big':''}">${escapeHtml(String(labelSO).padStart(7,'0'))}</div>
       ${cfg.socRule ? '<div class="lbl-soc-rule"></div>' : ''}
       <div class="lbl-line">CUST: <span class="lbl-cust-name">${escapeHtml(cust)}</span></div>
       <div class="lbl-line">SHIP VIA: ${escapeHtml(t0.via||'')}</div>
@@ -4931,7 +5002,7 @@ function generateLabelDocument(so, cust, po, skids){
         <div class="lbl-item-desc">${escapeHtml(it.desc)}</div>
       </div>`).join('');
       const pageHtml = `<div class="label" style="--lbl-scale:${labelScaleForItemCount(chunk.length)};--lbl-dept-scale:${cfg.printScale};--lbl-item-dept-scale:${cfg.printItemScale};--lbl-top-reduce:${cfg.topReducePx}px;--lbl-line-gap:${cfg.lineGapPx}px;--lbl-line-size:${custLineSize}px">
-      <div class="lbl-so">${escapeHtml(String(so).padStart(7,'0'))}</div>
+      <div class="lbl-so${cfg.socRule?' lbl-so-big':''}">${escapeHtml(String(so).padStart(7,'0'))}</div>
       ${cfg.socRule ? '<div class="lbl-soc-rule"></div>' : ''}
       <div class="lbl-line">CUST: <span class="lbl-cust-name">${escapeHtml(cust)}</span></div>
       <div class="lbl-line">SHIP VIA: ${t0.via||''}</div>
@@ -4954,9 +5025,10 @@ function generateLabelDocument(so, cust, po, skids){
 @page{size:${cfg.widthIn}in ${cfg.heightIn}in;margin:0}
 *{box-sizing:border-box;margin:0;padding:0;font-family:Arial,Helvetica,sans-serif}
 body{background:#fff;color:#000}
-.label{width:${cfg.widthIn}in;height:${cfg.heightIn}in;padding:calc(0.22in - var(--lbl-top-reduce,5px)) 0.22in 0.22in 0.22in;position:relative;page-break-after:always;overflow:hidden}
+.label{width:${cfg.widthIn}in;height:${cfg.heightIn}in;margin-left:-0.03125in;padding:calc(0.22in - var(--lbl-top-reduce,5px)) 0.22in 0.22in 0.22in;position:relative;page-break-after:always;overflow:hidden}
 .lbl-so{font-size:65px;font-weight:800;margin-bottom:0;letter-spacing:1px;text-align:center}
-.lbl-soc-rule{border-top:4px solid #000;margin:-14px 0 8px}
+.lbl-soc-rule{border-top:8px solid #000;margin:-14px 0 8px}
+.lbl-so-big{font-size:74px}
 .lbl-line{font-size:calc(22px * var(--lbl-dept-scale,1));font-weight:700;margin-bottom:var(--lbl-line-gap,6px);line-height:1.1}
 .lbl-cust-name{font-size:var(--lbl-line-size,22px)}
 .lbl-divider{border-top:2px solid #000;margin:calc(4px * var(--lbl-dept-scale,1)) 0 calc(8px * var(--lbl-dept-scale,1))}
@@ -5655,7 +5727,7 @@ function renderArchive(){
     const viaTag=makeViaTag(g.via, g.travelers[0]?.location||'');
     const picTag=hasPic?`<span class="tag tg">✓ ${soPhotos.length}</span>`:`<span class="tag td">No photo</span>`;
     const isOpen=archExpanded.has(g.so);
-    return `<tr class="archive-row" onclick="toggleArchiveSO('${g.so}')" style="cursor:pointer">
+    return `<tr class="archive-row" onclick="openArchiveSOModal('${g.so}')" style="cursor:pointer">
       <td style="font-family:var(--mono);font-weight:600;color:var(--text)"><span class="chevron${isOpen?' open':''}" style="margin-right:6px"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg></span>${g.so}</td>
       <td><span class="mono">${g.soShip}</span></td>
       <td>${viaTag}</td>
@@ -5665,6 +5737,116 @@ function renderArchive(){
       <td onclick="event.stopPropagation()">${currentProfile?.username==='zgta26'?`<button class="btn" onclick="restoreSO('${g.so}')">Restore</button>`:`<span class="tag td" title="Only the owner account can restore archived orders">Locked</span>`}</td>
     </tr>${isOpen?`<tr class="archive-detail-row"><td colspan="7" style="padding:0">${buildArchiveDetailRows(g.so, g.travelers, soPhotos)}</td></tr>`:''}`;
   }).join('');
+}
+// Read-only SO modal for an archived order. Same shell, header and desktop column layout as
+// openSOModal(), but NO approve / upload / comment box / date edit / print label / photo delete.
+// Deliberately a separate builder from buildSODetailRows() (see Archive section of the context doc).
+function openArchiveSOModal(so){
+  const g = archivedOrders.find(a=>a.so===so);
+  if(!g || !g.travelers.length) return;
+  currentModalSO = so;
+  const travelers = g.travelers;
+  const t0 = travelers[0];
+  const soPhotos = photos[so]||[];
+  const viaTag = makeViaTag(t0.via, t0.location);
+  const approvedCount = travelers.filter(o=>approvals[o.traveler]).length;
+  const approvalBadge = approvedCount===travelers.length
+    ? `<span class="tag tg">✓ Approved</span>`
+    : approvedCount>0 ? `<span class="tag td">${approvedCount}/${travelers.length} approved</span>` : '';
+  const archivedBadge = `<span class="tag td" title="Read-only: this order is archived">Archived</span>`;
+  document.getElementById('so-modal-title').textContent = isMobileLayout() ? 'SO '+so : '';
+  document.getElementById('so-modal-summary').innerHTML = isMobileLayout() ? `
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+      ${viaTag}
+      ${deptPillsForTravelers(travelers)}
+      <span style="font-size:13px;color:var(--text)">${t0.customer}</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <span class="mono" style="font-size:13px;font-weight:600;color:var(--text)">${fmtDate(t0.soShipRaw)}</span>
+      ${approvalBadge}
+      ${archivedBadge}
+    </div>` : `
+    <div class="so-modal-header-desktop">
+      <div class="so-modal-header-row1">
+        <div>
+          <div class="so-modal-eyebrow">Sales Order</div>
+          <div class="so-modal-so-num mono">${so}</div>
+        </div>
+        <div class="so-modal-header-customer">
+          <div class="so-modal-eyebrow">Customer</div>
+          <div class="so-modal-customer-name">${t0.customer}</div>
+        </div>
+        <div class="so-modal-header-pills">${viaTag}${deptPillsForTravelers(travelers)}</div>
+      </div>
+      <div class="so-modal-header-row2">
+        <div class="so-modal-header-stat">
+          <span class="so-modal-eyebrow">Ship Date</span>
+          <span class="mono so-modal-ship-date">${fmtDate(t0.soShipRaw)}</span>
+        </div>
+        <div class="so-modal-header-status">${approvalBadge}${archivedBadge}</div>
+      </div>
+    </div>`;
+  document.getElementById('so-modal-body').innerHTML = `<table style="width:100%;border-collapse:collapse"><tbody>${buildArchiveModalRows(so, travelers, soPhotos)}</tbody></table>`;
+  const modalCard = document.getElementById('so-modal-card');
+  if(isMobileLayout()){
+    modalCard.style.maxWidth = '700px';
+  } else {
+    modalCard.style.maxWidth = '1100px';
+    layoutSOModalDesktopColumns(so);
+  }
+  document.getElementById('so-modal').classList.add('open');
+  loadMoveLogForSO(so);
+}
+function buildArchiveModalRows(so, travelers, soPhotos){
+  let html='';
+  for(const o of travelers){
+    const isApproved = !!approvals[o.traveler];
+    const approvalInfo = approvals[o.traveler];
+    const statusTag = isApproved
+      ? `<span class="tag tg" title="Approved by ${approvalInfo.approved_by}">✓ Approved</span>`
+      : `<span class="tag td">Pending</span>`;
+    html+=`<tr class="tr-row${isApproved?' approved-row':''}">
+      <td style="font-size:12px;font-family:var(--mono)${o.department?`;box-shadow:inset 3px 0 4px -1px var(${DEPT_COLOR_VAR[o.department]})`:''}"><span style="opacity:0.35;margin-right:5px">└</span><span style="color:var(--text);font-weight:600">${o.traveler}</span></td>
+      <td style="color:var(--text);font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:220px">${o.desc}</td>
+      <td data-label="Item"><span class="mono" style="${isCus(o)?'color:var(--amber)':'color:var(--text)'};font-weight:600">${o.item}</span></td>
+      <td data-label="Qty" style="text-align:right;font-family:var(--mono);font-size:13px;font-weight:600;color:var(--text)">${o.qty%1===0?o.qty:o.qty.toFixed(1)}</td>
+      <td data-label="Line" style="font-family:var(--mono);font-size:11px;color:var(--text3)">${o.line}</td>
+      <td>${statusTag}</td>
+    </tr>`;
+  }
+  html+=`<tr class="movelog-row"><td colspan="6">
+    <div id="movelog-summary-${so}" onclick="toggleMoveLog('${so}')" style="font-size:12px;color:var(--text3);font-family:var(--mono);padding:4px 0;cursor:pointer;width:fit-content">Checking move history…</div>
+    <div id="movelog-list-${so}" class="hidden" style="margin:2px 0 8px;padding-left:2px"></div>
+  </td></tr>`;
+  const visiblePhotos = (soPhotos||[]).filter(p=>isDeptVisible(p.department));
+  const thumbs = visiblePhotos.map(p=>`
+    <div class="photo-thumb-wrap">
+      <img class="photo-thumb" src="${p.url}" loading="lazy"
+        title="${p.filename} · ${p.uploaded_by} · ${new Date(p.uploaded_at).toLocaleString()}"
+        onclick="openLB('${p.url}','${p.filename}','${p.uploaded_by||''}','${new Date(p.uploaded_at).toLocaleString()}','${p.id}','${p.storage_path||''}','${so}')">
+      ${p.department?`<div style="position:absolute;bottom:-6px;left:-6px">${makeDeptPill(p.department)}</div>`:''}
+    </div>`).join('');
+  const threadComments = (soComments[so]||[]).filter(c=>isDeptVisible(c.department));
+  const commentsHtml = threadComments.map(c=>`<div class="comment-item">
+      <div class="comment-avatar">${c.actor_initials}</div>
+      <div class="comment-bubble">
+        <div class="comment-meta">
+          <span style="color:var(--text2);font-weight:600">${c.actor}</span>
+          <span>${new Date(c.created_at).toLocaleString([],{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})}</span>
+        </div>
+        <div class="comment-body">${escapeHtml(c.body)}</div>
+      </div>
+    </div>`).join('');
+  html+=`<tr class="photo-row"><td colspan="6">
+    <div class="photo-section">
+      ${visiblePhotos.length?`<div class="photo-thumbs">${thumbs}</div>`:`<div style="font-size:12px;color:var(--text3)">No photos</div>`}
+    </div>
+    <div class="comments-section">
+      <div class="comments-label">Comments</div>
+      ${threadComments.length?commentsHtml:`<div style="font-size:12px;font-family:var(--mono);color:var(--text3)">No comments</div>`}
+    </div>
+  </td></tr>`;
+  return html;
 }
 function toggleArchiveSO(so){
   if(archExpanded.has(so)) archExpanded.delete(so); else archExpanded.add(so);
@@ -5822,7 +6004,7 @@ function toast(title,body,type){
 // ── Keyboard ──────────────────────────────────────────────────────────────────
 document.addEventListener('keydown',e=>{
   if(e.key==='Escape'){
-    closeLB();closeConfirmPhoto();closeConfirmUser();closeAddUser();closeSOModal();closePrintReportModal();closePrintLabelModal();closeHolidaysModal();closeCustomerListModal();closeWoodCodesModal();closeGearCodesModal();closeMetalCodesModal();colorCheckRespond(false);staleCsvRespond(false);
+    closeLB();closeConfirmPhoto();closeConfirmUser();closeAddUser();closeSOModal();closePrintReportModal();closePrintLabelModal();closeHolidaysModal();closeCustomerListModal();closeWoodCodesModal();closeGearCodesModal();closeMetalCodesModal();colorCheckRespond(false);staleCsvRespond(false);shareWarnRespond(false);
   }
 });
  
