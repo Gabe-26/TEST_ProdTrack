@@ -364,6 +364,11 @@ thead th{position:sticky;top:0;z-index:2;background:var(--surface);border-bottom
 .wc-table{width:100%;border-collapse:collapse;font-size:12px}
 .wc-table th{position:sticky;top:0;background:var(--surface2);text-align:left;padding:8px 10px;font-size:10px;font-family:var(--mono);color:var(--text3);text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid var(--border2)}
 .wc-table td{padding:6px 10px;border-bottom:1px solid var(--border);vertical-align:middle}
+.nc-row{padding:10px 0;border-bottom:1px solid var(--border)}
+.nc-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.nc-code{font-size:13px;font-weight:700;color:var(--text)}
+.nc-sos{font-size:11px;font-family:var(--mono);color:var(--text3)}
+.nc-desc{font-size:12px;color:var(--text2);margin:4px 0 8px}
 .wc-type-btn{font-size:10px;font-family:var(--mono);padding:3px 8px;border-radius:5px;border:1px solid var(--border2);background:transparent;color:var(--text2);cursor:pointer;margin-right:4px}
 .wc-type-btn.active.wc-section{background:var(--green-dim);color:var(--green);border-color:var(--green)}
 .wc-type-btn.active.wc-gate{background:var(--pink-dim);color:var(--pink);border-color:var(--pink)}
@@ -508,6 +513,9 @@ thead th{position:sticky;top:0;z-index:2;background:var(--surface);border-bottom
 #category-breakdown .sum-item{min-width:80px;text-align:center;padding:0 14px;border-right:1px solid var(--border)}
 #category-breakdown .sum-item:last-child{border-right:none;padding-right:0}
 #category-breakdown .sum-item:first-child{padding-left:0}
+#category-breakdown .cb-prog{height:3px;background:var(--border);border-radius:2px;margin:6px 0 0;overflow:hidden}
+#category-breakdown .cb-prog-bar{height:100%;background:var(--green)}
+#category-breakdown .cb-prog-txt{font-size:12px;font-weight:700;font-family:var(--mono);color:var(--text3);margin-top:3px}
 #category-breakdown .sum-label{font-size:9px;font-family:var(--mono);color:var(--text3);letter-spacing:0.06em;text-transform:uppercase;margin-bottom:2px}
 #category-breakdown .sum-val{font-size:16px;font-weight:700;letter-spacing:-0.02em;font-family:var(--mono);color:var(--text)}
 #category-breakdown .sum-val.green{color:var(--green)}
@@ -532,6 +540,7 @@ thead th{position:sticky;top:0;z-index:2;background:var(--surface);border-bottom
   #category-breakdown .sum-item{min-width:0;padding:0 6px}
   #category-breakdown .sum-label{font-size:8px}
   #category-breakdown .sum-val{font-size:13px}
+  #category-breakdown .cb-prog-txt{font-size:10px}
 }
 </style>
 </head>
@@ -766,6 +775,7 @@ thead th{position:sticky;top:0;z-index:2;background:var(--surface);border-bottom
         <option value="">All Prod lines</option>
       </select>
       <span id="wc-count" style="font-size:11px;font-family:var(--mono);color:var(--text3)"></span>
+      <button class="btn" style="margin-left:auto" onclick="openProdlineDefaults('wood')">Prod line defaults</button>
     </div>
     <div class="wc-bulkbar">
       <input type="checkbox" id="wc-selectall" onchange="toggleWoodCodeSelectAll(this.checked)">
@@ -812,6 +822,7 @@ thead th{position:sticky;top:0;z-index:2;background:var(--surface);border-bottom
         <option value="">All Prod lines</option>
       </select>
       <span id="gc-count" style="font-size:11px;font-family:var(--mono);color:var(--text3)"></span>
+      <button class="btn" style="margin-left:auto" onclick="openProdlineDefaults('gear')">Prod line defaults</button>
     </div>
     <div class="wc-bulkbar">
       <input type="checkbox" id="gc-selectall" onchange="toggleGearCodeSelectAll(this.checked)">
@@ -841,6 +852,32 @@ thead th{position:sticky;top:0;z-index:2;background:var(--surface);border-bottom
 </div>
 
 <!-- Metal codes modal (owner only) — manually classify Metal item codes -->
+<div class="modal-overlay" id="prodline-defaults-modal" style="z-index:850" onclick="if(event.target===this) closeProdlineDefaults()">
+  <div class="modal-card" style="max-width:900px">
+    <div class="modal-title">
+      <span id="pl-title">Prod line defaults</span>
+      <button class="modal-close" onclick="closeProdlineDefaults()">✕</button>
+    </div>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:12px">Pick a default category for a prod line. Click the highlighted one again to clear it (no default). <b>Apply</b> only fills codes that have no category yet — it never changes a code you have already classified.</div>
+    <div id="pl-list" style="max-height:55vh;overflow:auto"></div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px">
+      <button class="btn" onclick="closeProdlineDefaults()">Close</button>
+      <button class="btn primary" id="pl-apply-btn" onclick="applyProdlineDefaults()">Apply</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="new-codes-modal" style="z-index:850" onclick="if(event.target===this) closeNewCodesModal()">
+  <div class="modal-card" style="max-width:980px">
+    <div class="modal-title">
+      New item codes
+      <button class="modal-close" onclick="closeNewCodesModal()">✕</button>
+    </div>
+    <div id="nc-sub" style="font-size:12px;color:var(--text3);margin-bottom:12px"></div>
+    <div id="nc-list" style="max-height:60vh;overflow:auto"></div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="metal-codes-modal">
   <div class="modal-card">
     <div class="modal-title">
@@ -863,6 +900,7 @@ thead th{position:sticky;top:0;z-index:2;background:var(--surface);border-bottom
         <option value="">All Prod lines</option>
       </select>
       <span id="mc-count" style="font-size:11px;font-family:var(--mono);color:var(--text3)"></span>
+      <button class="btn" style="margin-left:auto" onclick="openProdlineDefaults('metal')">Prod line defaults</button>
     </div>
     <div class="wc-bulkbar">
       <input type="checkbox" id="mc-selectall" onchange="toggleMetalCodeSelectAll(this.checked)">
@@ -1016,6 +1054,10 @@ thead th{position:sticky;top:0;z-index:2;background:var(--surface);border-bottom
       <div class="nav-item" id="nav-holidays" onclick="openHolidaysModal()" style="display:none">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
         Holidays
+      </div>
+      <div class="nav-item" id="nav-new-codes" onclick="openNewCodesModal()" style="display:none">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+        New codes<span class="nb red" id="b-new-codes">0</span>
       </div>
       <div class="nav-item" id="nav-wood-codes" onclick="openWoodCodesModal()" style="display:none">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>
@@ -1380,7 +1422,8 @@ async function loadProfile(){
     username: p.username || fromEmail(currentUser.email),
     pref_lang: p.pref_lang || 'none',
     theme: p.theme || 'dark',
-    departments: p.departments || []
+    departments: p.departments || [],
+    canViewArchive: !!p.can_view_archive
   };
 }
 
@@ -1410,7 +1453,7 @@ function linkedHover(so, on){
   if(b) b.classList.toggle('hovered', on);
 }
 function soLabelPrintedBadge(so, mode){
-  if(currentProfile?.role==='production') return ''; // Production doesn't need to see label-print status
+  if(currentProfile?.role==='production' || currentProfile?.role==='viewer') return ''; // Production and Viewers don't need to see label-print status
   const depts = ['wood','gate','gear'].filter(d=>labelPrints[so+'|'+d] && activeDepts.has(d));
   if(!depts.length) return '';
   const title = depts.map(d=>{
@@ -1493,7 +1536,7 @@ function showApp(){
   document.getElementById('nav-upload').style.display  = isMgr ? 'flex' : 'none';
   document.getElementById('nav-customer-list').style.display = isMgr ? 'flex' : 'none';
   document.getElementById('nav-users').style.display   = isMgr ? 'flex' : 'none';
-  document.getElementById('nav-archive').style.display = (isMgr || isProd) ? 'flex' : 'none'; // Production can browse the Archive; restore/archive stay owner-only
+  document.getElementById('nav-archive').style.display = (uname === 'zgta26' || currentProfile?.canViewArchive) ? 'flex' : 'none'; // per-user view access granted by the owner in Manage Users; restore/archive stay owner-only
   document.getElementById('nav-holidays').style.display = uname === 'zgta26' ? 'flex' : 'none';
   document.getElementById('nav-wood-codes').style.display = uname === 'zgta26' ? 'flex' : 'none';
   document.getElementById('nav-gear-codes').style.display = uname === 'zgta26' ? 'flex' : 'none';
@@ -1575,6 +1618,7 @@ async function sbGet(table, params=''){
 async function loadLastCsvUpload(){
   try{
     const rows = await sbGet('app_meta','select=value&key=eq.last_csv_upload');
+    csvSeenStamp = (rows.length && rows[0].value) ? rows[0].value : '';
     const el = document.getElementById('last-csv-line');
     if(!el) return;
     if(rows.length && rows[0].value){
@@ -1694,7 +1738,7 @@ async function sbUpdate(table, id, data){
 // ── Load data ─────────────────────────────────────────────────────────────────
 async function loadAll(){
   showLoading('Loading orders…');
-  try{ await Promise.all([loadOrders(), loadPhotos(), loadApprovals(), loadComments(), loadLastCsvUpload(), loadHolidays(), loadCustomers(), loadWoodItemTypes(), loadGearItemTypes(), loadMetalItemTypes(), loadDepartmentBatches(), loadBatchReads(), loadLabelPrints()]); updateAll(); sv('tomorrow'); openDeepLinkedSO(); }
+  try{ await Promise.all([loadOrders(), loadPhotos(), loadApprovals(), loadComments(), loadLastCsvUpload(), loadHolidays(), loadCustomers(), loadWoodItemTypes(), loadGearItemTypes(), loadMetalItemTypes(), loadDepartmentBatches(), loadBatchReads(), loadLabelPrints()]); updateAll(); refreshNewCodes(true); sv('tomorrow'); openDeepLinkedSO(); }
   catch(e){ toast('Error',e.message,'red'); }
   hideLoading();
 }
@@ -1945,7 +1989,7 @@ async function refreshData(){
   try{
     const ok = await refreshAuthToken();
     if(!ok){ await forceReauth('Session expired — please sign in again.'); btn.disabled=false; return; }
-    await Promise.all([loadOrders(),loadPhotos(),loadApprovals(),loadComments(),loadLastCsvUpload(),loadHolidays(),loadCustomers(),loadWoodItemTypes(),loadGearItemTypes(),loadMetalItemTypes(),loadDepartmentBatches(),loadBatchReads(),loadLabelPrints()]); lastDataFetchAt=Date.now(); updateAll(); render(); toast('Refreshed','Data is up to date.','green'); startAutoRefresh();
+    await Promise.all([loadOrders(),loadPhotos(),loadApprovals(),loadComments(),loadLastCsvUpload(),loadHolidays(),loadCustomers(),loadWoodItemTypes(),loadGearItemTypes(),loadMetalItemTypes(),loadDepartmentBatches(),loadBatchReads(),loadLabelPrints()]); lastDataFetchAt=Date.now(); updateAll(); render(); refreshNewCodes(true); toast('Refreshed','Data is up to date.','green'); startAutoRefresh();
   }
   catch(e){ toast('Error',e.message,'red'); }
   btn.disabled=false;
@@ -1987,6 +2031,7 @@ function renderUsers(){
             const on=(u.departments||[]).includes(d);
             return `<span class="dept-pill ${on?m.cls:'td'}" style="cursor:pointer;opacity:${on?'1':'0.45'}" title="${on?'Click to remove '+m.label:'Click to grant '+m.label}" onclick="toggleUserDept('${u.id}','${d}')">${m.label[0]}${d==='gate'?'T':''}</span>`;
           }).join('')}
+          <span class="tag ${u.can_view_archive?'tb':'td'}" style="cursor:pointer;opacity:${u.can_view_archive?'1':'0.45'}" title="${isOwner?(u.can_view_archive?'Click to remove view-only Archive access':'Click to grant view-only Archive access'):'Only the owner account can change Archive access'}" onclick="toggleUserArchive('${u.id}')">Archive</span>
         </div>
       </div>
       <div class="uc-actions">
@@ -2021,6 +2066,21 @@ async function toggleUserDept(userId, dept){
   }
 }
  
+async function toggleUserArchive(userId){
+  if(currentProfile?.username !== 'zgta26'){ toast('Not allowed', 'Only the owner account can change Archive access.', 'red'); return; }
+  const u = allUsers.find(x=>x.id===userId);
+  if(!u) return;
+  const next = !u.can_view_archive;
+  u.can_view_archive = next; // optimistic
+  renderUsers();
+  try{
+    await sbUpdate('profiles', userId, {can_view_archive: next});
+  } catch(e){
+    toast('Error', e.message, 'red');
+    await loadUsers();
+  }
+}
+
 async function toggleRole(userId, currentRole){
   if(currentProfile?.username !== 'zgta26'){ toast('Not allowed', 'Only the owner account can change roles.', 'red'); return; }
   const cycle = {manager:'worker', worker:'production', production:'viewer', viewer:'manager'};
@@ -2541,7 +2601,7 @@ async function performCSVUpload(parsed, newReportTime, prodLineTimes, st){
         }).catch(()=>{});
       }
       st.textContent='✓ '+rowsToUpsert.length+' travelers at '+ts+(skippedRows.length?` (${skippedRows.length} skipped)`:'');
-      await loadOrders(); updateAll();
+      await loadOrders(); updateAll(); refreshNewCodes(true);
       const hasIssues = dateChanges.length || missingFromCSV.length || skippedRows.length;
       if(hasIssues){
         const parts=[];
@@ -2722,8 +2782,8 @@ function renderOrdersSummary(groups){
   wrap.style.display='';
   wrap.innerHTML = `
     <div class="sum-item clickable${!summaryPhotoFilter?' active':''}" onclick="setSummaryPhotoFilter(null)"><div class="sum-label">Orders</div><div class="sum-val amber">${activeGroups.length}</div></div>
-    <div class="sum-item clickable${summaryPhotoFilter==='photo'?' active':''}" onclick="setSummaryPhotoFilter('photo')"><div class="sum-label">Photo uploaded</div><div class="sum-val green">${totalPhotos}</div></div>
-    <div class="sum-item clickable${summaryPhotoFilter==='nophoto'?' active':''}" onclick="setSummaryPhotoFilter('nophoto')"><div class="sum-label">No photo yet</div><div class="sum-val red">${totalNone}</div></div>
+    <div class="sum-item clickable${summaryPhotoFilter==='photo'?' active':''}" onclick="setSummaryPhotoFilter('photo')"><div class="sum-label">Orders with photos</div><div class="sum-val green">${totalPhotos}</div></div>
+    <div class="sum-item clickable${summaryPhotoFilter==='nophoto'?' active':''}" onclick="setSummaryPhotoFilter('nophoto')"><div class="sum-label">Orders without photos</div><div class="sum-val red">${totalNone}</div></div>
     <div class="sum-item"><div class="sum-label">Travelers</div><div class="sum-val">${totalTravelers}</div></div>
   `;
 }
@@ -2761,57 +2821,73 @@ function renderCategoryBreakdown(groups){
   const woodTotals = {section:0, gate:0, post:0, arb_perg:0, misc:0};
   const gearTotals = {section:0, post:0, profile:0, lattice_profile:0, topper:0, bend:0, arb_perg:0, post_and_rail:0, misc:0};
   const gateTotals = {gate:0, misc:0};
-  const metalTotals = {pipe:0, frame:0, canti:0, barrier:0, rolling:0, misc:0};
+  const metalTotals = {pipe:0, frame:0, alum_frame:0, canti:0, barrier:0, rolling:0, misc:0};
+  // Approved qty per category (a manager approved the traveler that carries the item)
+  const woodDone = {section:0, gate:0, post:0, arb_perg:0, misc:0};
+  const gearDone = {section:0, post:0, profile:0, lattice_profile:0, topper:0, bend:0, arb_perg:0, post_and_rail:0, misc:0};
+  const gateDone = {gate:0, misc:0};
+  const metalDone = {pipe:0, frame:0, alum_frame:0, canti:0, barrier:0, rolling:0, misc:0};
+  const prog = (done,total)=>{
+    if(!(total>0)) return '';
+    const pct = Math.min(100,Math.round(done/total*100));
+    const col = pct>=75 ? '--green' : pct>=50 ? '--yellow' : pct>=25 ? '--orange' : '--red'; // red <25, orange <50, yellow <75, green 75+
+    return `<div class="cb-prog" title="${done} of ${total} approved"><div class="cb-prog-bar" style="width:${pct}%;background:var(${col})"></div></div><div class="cb-prog-txt">${done}/${total}</div>`;
+  };
   activeGroups.forEach(g=>{
     g.travelers.forEach(o=>{
       const qty = Number(o.qty)||0;
-      if(o.department==='wood') woodTotals[classifyWoodTraveler(o.line, o.item, o.desc)] += qty;
-      else if(o.department==='gear') gearTotals[classifyGearItem(o.item)] += qty;
-      else if(o.department==='gate') gateTotals[classifyGearItem(o.item)==='gate' ? 'gate' : 'misc'] += qty;
-      else if(o.department==='metal') metalTotals[classifyMetalItem(o.item, o.desc)] += qty;
+      const ap = approvals[o.traveler] ? qty : 0;
+      if(o.department==='wood'){ const k = classifyWoodTraveler(o.line, o.item, o.desc); woodTotals[k] += qty; woodDone[k] += ap; }
+      else if(o.department==='gear'){ const k = classifyGearItem(o.item); gearTotals[k] += qty; gearDone[k] += ap; }
+      else if(o.department==='gate'){ const k = classifyGearItem(o.item)==='gate' ? 'gate' : 'misc'; gateTotals[k] += qty; gateDone[k] += ap; }
+      else if(o.department==='metal'){ const k = classifyMetalItem(o.item, o.desc); metalTotals[k] += qty; metalDone[k] += ap; }
+      // Alum Frame: lines 151 (Gate) and 516 (Wood) are built by their own shop, but Metal makes the frame.
+      // Automatic by prod line (department_extra), never manual. Counted in addition to the Gate/Wood tiles, and only when Metal is toggled on.
+      if(o.deptExtra==='metal' && activeDepts.has('metal')){ metalTotals.alum_frame += qty; metalDone.alum_frame += ap; }
     });
   });
   const blocks = [];
   if(Object.values(woodTotals).some(v=>v>0)){
     const c = collapsedBreakdownDepts.has('wood');
     blocks.push(`<div class="cb-block"><div class="cb-label"${c?' style="margin-bottom:0"':''} onclick="toggleBreakdownDept('wood')">${c?'▸':'▾'} Wood</div>${c?'':`<div class="cb-tiles">
-    <div class="sum-item"><div class="sum-label">Sections</div><div class="sum-val green">${woodTotals.section}</div></div>
-    <div class="sum-item"><div class="sum-label">Gates</div><div class="sum-val">${woodTotals.gate}</div></div>
-    <div class="sum-item"><div class="sum-label">Posts</div><div class="sum-val amber">${woodTotals.post}</div></div>
-    <div class="sum-item"><div class="sum-label">Arb/Perg</div><div class="sum-val purple">${woodTotals.arb_perg}</div></div>
-    <div class="sum-item"><div class="sum-label">Misc</div><div class="sum-val">${woodTotals.misc}</div></div>
+    <div class="sum-item"><div class="sum-label">Sections</div><div class="sum-val green">${woodTotals.section}</div>${prog(woodDone.section, woodTotals.section)}</div>
+    <div class="sum-item"><div class="sum-label">Gates</div><div class="sum-val">${woodTotals.gate}</div>${prog(woodDone.gate, woodTotals.gate)}</div>
+    <div class="sum-item"><div class="sum-label">Posts</div><div class="sum-val amber">${woodTotals.post}</div>${prog(woodDone.post, woodTotals.post)}</div>
+    <div class="sum-item"><div class="sum-label">Arb/Perg</div><div class="sum-val purple">${woodTotals.arb_perg}</div>${prog(woodDone.arb_perg, woodTotals.arb_perg)}</div>
+    <div class="sum-item"><div class="sum-label">Misc</div><div class="sum-val">${woodTotals.misc}</div>${prog(woodDone.misc, woodTotals.misc)}</div>
   </div>`}</div>`);
   }
   if(Object.values(gearTotals).some(v=>v>0)){
     const c = collapsedBreakdownDepts.has('gear');
     blocks.push(`<div class="cb-block"><div class="cb-label"${c?' style="margin-bottom:0"':''} onclick="toggleBreakdownDept('gear')">${c?'▸':'▾'} Gear</div>${c?'':`<div class="cb-tiles">
-    <div class="sum-item"><div class="sum-label">Sections</div><div class="sum-val green">${gearTotals.section}</div></div>
-    <div class="sum-item"><div class="sum-label">Posts</div><div class="sum-val amber">${gearTotals.post}</div></div>
-    <div class="sum-item"><div class="sum-label">Profiles</div><div class="sum-val blue">${gearTotals.profile}</div></div>
-    <div class="sum-item"><div class="sum-label">Lat-Profiles</div><div class="sum-val pink">${gearTotals.lattice_profile}</div></div>
-    <div class="sum-item"><div class="sum-label">Topper</div><div class="sum-val red">${gearTotals.topper}</div></div>
-    <div class="sum-item"><div class="sum-label">Bends</div><div class="sum-val teal">${gearTotals.bend}</div></div>
-    <div class="sum-item"><div class="sum-label">Arb/Perg</div><div class="sum-val purple">${gearTotals.arb_perg}</div></div>
-    <div class="sum-item"><div class="sum-label">Post &amp; Rail</div><div class="sum-val orange">${gearTotals.post_and_rail}</div></div>
-    <div class="sum-item"><div class="sum-label">Misc</div><div class="sum-val">${gearTotals.misc}</div></div>
+    <div class="sum-item"><div class="sum-label">Sections</div><div class="sum-val green">${gearTotals.section}</div>${prog(gearDone.section, gearTotals.section)}</div>
+    <div class="sum-item"><div class="sum-label">Posts</div><div class="sum-val amber">${gearTotals.post}</div>${prog(gearDone.post, gearTotals.post)}</div>
+    <div class="sum-item"><div class="sum-label">Profiles</div><div class="sum-val blue">${gearTotals.profile}</div>${prog(gearDone.profile, gearTotals.profile)}</div>
+    <div class="sum-item"><div class="sum-label">Lat-Profiles</div><div class="sum-val pink">${gearTotals.lattice_profile}</div>${prog(gearDone.lattice_profile, gearTotals.lattice_profile)}</div>
+    <div class="sum-item"><div class="sum-label">Topper</div><div class="sum-val red">${gearTotals.topper}</div>${prog(gearDone.topper, gearTotals.topper)}</div>
+    <div class="sum-item"><div class="sum-label">Bends</div><div class="sum-val teal">${gearTotals.bend}</div>${prog(gearDone.bend, gearTotals.bend)}</div>
+    <div class="sum-item"><div class="sum-label">Arb/Perg</div><div class="sum-val purple">${gearTotals.arb_perg}</div>${prog(gearDone.arb_perg, gearTotals.arb_perg)}</div>
+    <div class="sum-item"><div class="sum-label">Post &amp; Rail</div><div class="sum-val orange">${gearTotals.post_and_rail}</div>${prog(gearDone.post_and_rail, gearTotals.post_and_rail)}</div>
+    <div class="sum-item"><div class="sum-label">Misc</div><div class="sum-val">${gearTotals.misc}</div>${prog(gearDone.misc, gearTotals.misc)}</div>
   </div>`}</div>`);
   }
   if(Object.values(gateTotals).some(v=>v>0)){
     const c = collapsedBreakdownDepts.has('gate');
     blocks.push(`<div class="cb-block"><div class="cb-label"${c?' style="margin-bottom:0"':''} onclick="toggleBreakdownDept('gate')">${c?'▸':'▾'} Gate</div>${c?'':`<div class="cb-tiles">
-    <div class="sum-item"><div class="sum-label">Gates</div><div class="sum-val yellow">${gateTotals.gate}</div></div>
-    <div class="sum-item"><div class="sum-label">Misc</div><div class="sum-val">${gateTotals.misc}</div></div>
+    <div class="sum-item"><div class="sum-label">Gates</div><div class="sum-val yellow">${gateTotals.gate}</div>${prog(gateDone.gate, gateTotals.gate)}</div>
+    <div class="sum-item"><div class="sum-label">Misc</div><div class="sum-val">${gateTotals.misc}</div>${prog(gateDone.misc, gateTotals.misc)}</div>
   </div>`}</div>`);
   }
   if(Object.values(metalTotals).some(v=>v>0)){
     const c = collapsedBreakdownDepts.has('metal');
     blocks.push(`<div class="cb-block"><div class="cb-label"${c?' style="margin-bottom:0"':''} onclick="toggleBreakdownDept('metal')">${c?'▸':'▾'} Metal</div>${c?'':`<div class="cb-tiles">
-    <div class="sum-item"><div class="sum-label">Pipe</div><div class="sum-val blue">${metalTotals.pipe}</div></div>
-    <div class="sum-item"><div class="sum-label">Frame</div><div class="sum-val green">${metalTotals.frame}</div></div>
-    <div class="sum-item"><div class="sum-label">Canti</div><div class="sum-val amber">${metalTotals.canti}</div></div>
-    <div class="sum-item"><div class="sum-label">Barrier</div><div class="sum-val red">${metalTotals.barrier}</div></div>
-    <div class="sum-item"><div class="sum-label">Rolling</div><div class="sum-val purple">${metalTotals.rolling}</div></div>
-    <div class="sum-item"><div class="sum-label">Misc</div><div class="sum-val">${metalTotals.misc}</div></div>
+    <div class="sum-item"><div class="sum-label">Pipe</div><div class="sum-val blue">${metalTotals.pipe}</div>${prog(metalDone.pipe, metalTotals.pipe)}</div>
+    <div class="sum-item"><div class="sum-label">Frame</div><div class="sum-val green">${metalTotals.frame}</div>${prog(metalDone.frame, metalTotals.frame)}</div>
+    <div class="sum-item"><div class="sum-label">Alum Frame</div><div class="sum-val teal">${metalTotals.alum_frame}</div>${prog(metalDone.alum_frame, metalTotals.alum_frame)}</div>
+    <div class="sum-item"><div class="sum-label">Canti</div><div class="sum-val amber">${metalTotals.canti}</div>${prog(metalDone.canti, metalTotals.canti)}</div>
+    <div class="sum-item"><div class="sum-label">Barrier</div><div class="sum-val red">${metalTotals.barrier}</div>${prog(metalDone.barrier, metalTotals.barrier)}</div>
+    <div class="sum-item"><div class="sum-label">Rolling</div><div class="sum-val purple">${metalTotals.rolling}</div>${prog(metalDone.rolling, metalTotals.rolling)}</div>
+    <div class="sum-item"><div class="sum-label">Misc</div><div class="sum-val">${metalTotals.misc}</div>${prog(metalDone.misc, metalTotals.misc)}</div>
   </div>`}</div>`);
   }
   if(!blocks.length){ wrap.style.display='none'; return; }
@@ -2844,7 +2920,8 @@ function render(){
     if(activeView==='tomorrow'&&(!o.soShipRaw||!nextDays.includes(o.soShipRaw))) return false;
     if(activeView==='pending'&&photos[o.so]?.length>0) return false;
     if(activeView==='done'&&!photos[o.so]?.length) return false;
-    if(q&&![o.traveler,o.so,o.item,o.desc,o.customer].join(' ').toLowerCase().includes(q)) return false;
+    if(q&&![o.traveler,o.so,o.item,o.desc,o.customer].join(' ').toLowerCase().includes(q)
+       && !visibleCommentsFor(o.so).some(c=>(c.body||'').toLowerCase().includes(q))) return false;
     return true;
   });
  
@@ -3320,6 +3397,7 @@ function layoutSOModalDesktopColumns(so){
 function closeSOModal(){
   currentModalSO = null;
   document.getElementById('so-modal').classList.remove('open');
+  if(pendingCsvReload) checkCsvUploaded();
 }
 function refreshSOModalIfOpen(){ if(currentModalSO) openSOModal(currentModalSO); }
  
@@ -4048,7 +4126,7 @@ function generateReport(skipWarn){
     const viaCls    = t0.via==='OUR TRUCK' ? 'truck' : t0.via==='INSTALL/REPAIR' ? 'install'
       : loc.toLowerCase().includes('amityville') ? 'amendolas' : 'interstate';
     const approvedCount = travelers.filter(o => approvals[o.traveler]).length;
-    return { so, travelers, soPhotos, customer: t0.customer, soShip: t0.soShip, viaEmoji, viaLabel, viaCls, approvedCount };
+    return { so, travelers, soPhotos, soCommentList: soComments[so] || [], customer: t0.customer, soShip: t0.soShip, viaEmoji, viaLabel, viaCls, approvedCount };
   });
  
   const dateLabel   = nextDays.length===3 ? 'Fri · Sat · Mon' : nextDays.length===2 ? 'Weekend + Mon' : 'Tomorrow';
@@ -4113,6 +4191,13 @@ tr:last-child td{border-bottom:none}
 .photo-grid{display:flex;flex-wrap:wrap;gap:10px}
 .photo-grid img{width:110px;height:110px;object-fit:cover;border-radius:8px;border:1px solid rgba(255,255,255,0.13);display:block;cursor:pointer}
 .no-photos{font-size:12px;font-family:var(--mono);color:var(--text3)}
+.pc-row{display:flex;gap:24px;align-items:flex-start;flex-wrap:wrap}
+.pc-photos{flex:1 1 55%;min-width:260px}
+.pc-comments{flex:1 1 35%;min-width:220px}
+.cm{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;margin-bottom:8px}
+.cm-meta{font-size:11px;font-family:var(--mono);color:var(--text3);margin-bottom:3px}
+.cm-meta b{color:var(--text2)}
+.cm-body{font-size:13px;color:var(--text);white-space:pre-wrap;word-break:break-word}
 .footer{text-align:center;padding:28px 16px;font-size:11px;font-family:var(--mono);color:var(--text3);border-top:1px solid var(--border);margin-top:10px}
 .photo-grid a{display:block;-webkit-tap-highlight-color:rgba(255,255,255,0.1)}
 .photo-grid a img{width:110px;height:110px;object-fit:cover;border-radius:8px;border:1px solid rgba(255,255,255,0.13);display:block}
@@ -4159,6 +4244,7 @@ ${soData.map(s => {
     return `<a href="${p.url}" target="_blank"><img src="${p.url}" loading="lazy" alt="${p.filename}"></a>`;
   }).join('');
   const photoSection = hasPic ? `<div class="photo-grid">${photoItems}</div>` : `<div class="no-photos">No photos uploaded yet</div>`;
+  const commentsSection = s.soCommentList.length ? `<div class="pc-comments"><div class="photos-label">Comments</div>${s.soCommentList.map(c=>`<div class="cm"><div class="cm-meta"><b>${escapeHtml(c.actor||'')}</b> · ${new Date(c.created_at).toLocaleString([],{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})}</div><div class="cm-body">${escapeHtml(c.body||'')}</div></div>`).join('')}</div>` : '';
   return `<details${!hasPic?' open':''}>
   <summary>
     <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
@@ -4171,8 +4257,13 @@ ${soData.map(s => {
   <div class="body">
     <table><thead><tr><th>Traveler</th><th>Description</th><th>Item</th><th style="text-align:right">Qty</th><th>Status</th></tr></thead>
     <tbody>${travelerRows}</tbody></table>
-    <div class="photos-label">Photos</div>
-    ${photoSection}
+    <div class="pc-row">
+      <div class="pc-photos">
+        <div class="photos-label">Photos</div>
+        ${photoSection}
+      </div>
+      ${commentsSection}
+    </div>
   </div>
 </details>`;
 }).join('\n')}
@@ -5195,7 +5286,7 @@ async function handleWoodCodesCSVUpload(file){
       });
       if(!r.ok) throw new Error(await r.text());
     }
-    await loadWoodItemTypes();
+    await loadWoodItemTypes(); await autoApplyAfterCodeUpload('wood'); refreshNewCodes(false);
     renderWoodCodesProdOptions();
     renderWoodCodesList();
     status.textContent = `Done — ${woodCodes.length} codes loaded.`;
@@ -5205,6 +5296,252 @@ async function handleWoodCodesCSVUpload(file){
     toast('Error', e.message, 'red');
   }
   document.getElementById('wc-file-input').value = '';
+}
+// ── New item codes (owner only) ─────────────────────────────────────────────
+// An order's item code that is missing from its department's code list (wood / PVC / metal).
+// Gate and Gear share the PVC list (gear_item_types). Codes already in a list but still
+// unclassified are NOT "new" — that is the Misc backlog, not a notification.
+let newCodesList = [];
+let newCodesShown = new Set();
+let ncBusy = false;
+const NC_BUTTONS = {
+  wood:  [['section','Section','wc-section'],['gate','Gate','wc-gate'],['post','Post','wc-post'],['arb_perg','Arb/Perg','wc-arbperg']],
+  gear:  [['section','Section','gc-section'],['post','Post','gc-post'],['profile','Profile','gc-profile'],['lattice_profile','Lat-Profile','gc-latticeprofile'],['topper','Topper','gc-topper'],['bend','Bend','gc-bend'],['arb_perg','Arb/Perg','gc-arbperg'],['post_and_rail','Post & Rail','gc-postandrail'],['gate','Gates','gc-gate']],
+  gate:  [['gate','Gates','gc-gate']],
+  metal: [['pipe','Pipe','mc-pipe'],['frame','Frame','mc-frame'],['canti','Canti','mc-canti'],['barrier','Barrier','mc-barrier'],['rolling','Rolling','mc-rolling']]
+};
+function computeNewCodes(){
+  const setOf = arr => arr.length ? new Set(arr.map(r=>String(r.item_code).trim().toUpperCase())) : null; // empty list = never loaded/uploaded: skip, don't flood
+  const known = { wood:setOf(woodCodes), gear:setOf(gearCodes), metal:setOf(metalCodes) };
+  const found = {};
+  orders.forEach(o=>{
+    if(o.deletedAt || !o.item) return;
+    const tbl = o.department==='wood' ? 'wood' : o.department==='metal' ? 'metal' : (o.department==='gear'||o.department==='gate') ? 'gear' : null;
+    if(!tbl || !known[tbl]) return;
+    const code = String(o.item).trim();
+    if(!code) return;
+    const up = code.toUpperCase();
+    if(known[tbl].has(up)) return;
+    const key = tbl+'|'+up;
+    const f = found[key] || (found[key] = {key, tbl, code, desc:o.desc||'', prod:o.line||'', depts:new Set(), sos:new Set()});
+    f.depts.add(o.department);
+    f.sos.add(o.so);
+  });
+  return Object.values(found).sort((a,b)=> a.tbl.localeCompare(b.tbl) || a.code.localeCompare(b.code));
+}
+let ncAutoTried = new Set(), ncAutoRunning = false;
+// New codes that sit on a prod line with a default are saved automatically (ignore-duplicates, so a code
+// someone else already classified is never overwritten). Anything without a default goes to the popup.
+async function autoClassifyNewCodes(list){
+  const rows = {wood:[], gear:[], metal:[]};
+  list.forEach(n=>{ ncAutoTried.add(n.key); rows[n.tbl].push({item_code:n.code, description:n.desc, prod:n.prod, type:plDefaults[n.tbl][n.prod]}); });
+  let saved = 0;
+  for(const tbl of ['wood','gear','metal']){
+    if(!rows[tbl].length) continue;
+    const r = await fetch(`${SUPA_URL}/rest/v1/${PL_CFG[tbl].table}?on_conflict=item_code`, {
+      method:'POST', headers:{...H(),'Prefer':'resolution=ignore-duplicates,return=minimal'},
+      body: JSON.stringify(rows[tbl])
+    });
+    if(!r.ok) throw new Error(await r.text());
+    rows[tbl].forEach(row=>{
+      PL_CFG[tbl].arr().push({item_code:row.item_code, description:row.description, prod:row.prod, type:row.type});
+      PL_CFG[tbl].map()[row.item_code.trim().toUpperCase()] = row.type;
+      saved++;
+    });
+  }
+  return saved;
+}
+async function refreshNewCodes(autoPopup){
+  const nav = document.getElementById('nav-new-codes');
+  if(!nav) return;
+  if(currentProfile?.username !== 'zgta26'){ nav.style.display = 'none'; return; }
+  newCodesList = computeNewCodes();
+  if(newCodesList.length && !ncAutoRunning){
+    if(!plLoaded) await loadProdlineDefaults();
+    const auto = newCodesList.filter(n=>plDefaults[n.tbl] && plDefaults[n.tbl][n.prod] && !ncAutoTried.has(n.key));
+    if(auto.length){
+      ncAutoRunning = true;
+      try{
+        const n = await autoClassifyNewCodes(auto);
+        if(n){ toast('New codes categorized', `${n} new code${n>1?'s':''} categorized by prod line default.`, 'green'); render(); }
+      }catch(e){ toast('Could not auto-categorize new codes', e.message, 'red'); }
+      ncAutoRunning = false;
+      newCodesList = computeNewCodes();
+    }
+  }
+  document.getElementById('b-new-codes').textContent = newCodesList.length;
+  nav.style.display = newCodesList.length ? 'flex' : 'none';
+  if(document.getElementById('new-codes-modal').classList.contains('open')) renderNewCodesList();
+  if(autoPopup && newCodesList.some(n=>!newCodesShown.has(n.key))){
+    newCodesList.forEach(n=>newCodesShown.add(n.key));
+    openNewCodesModal();
+  }
+}
+function openNewCodesModal(){
+  if(currentProfile?.username !== 'zgta26') return;
+  renderNewCodesList();
+  document.getElementById('new-codes-modal').classList.add('open');
+}
+function closeNewCodesModal(){ document.getElementById('new-codes-modal').classList.remove('open'); }
+function renderNewCodesList(){
+  const list = document.getElementById('nc-list');
+  document.getElementById('nc-sub').textContent = newCodesList.length
+    ? `${newCodesList.length} item code${newCodesList.length>1?'s':''} on current orders ${newCodesList.length>1?'are':'is'} not in the code lists yet. Pick a category to save it, or Leave as Misc to dismiss it.`
+    : '';
+  if(!newCodesList.length){
+    list.innerHTML = '<div class="empty"><div class="empty-title">No new codes</div><div class="empty-sub">Every item code on current orders is already in the code lists.</div></div>';
+    return;
+  }
+  list.innerHTML = newCodesList.map((n,i)=>{
+    const sos = [...n.sos];
+    const set = n.tbl==='gear' && !n.depts.has('gear') ? 'gate' : n.tbl;
+    const btns = NC_BUTTONS[set].map(([val,label,cls])=>`<button class="wc-type-btn ${cls}" onclick="classifyNewCode(${i},'${val}')">${label}</button>`).join('')
+      + `<button class="wc-type-btn wc-misc" onclick="classifyNewCode(${i},'misc')">Leave as Misc</button>`;
+    return `<div class="nc-row">
+      <div class="nc-top">${[...n.depts].map(d=>makeDeptPill(d)).join('')}<span class="mono nc-code">${escapeHtml(n.code)}</span><span class="nc-sos">SO ${sos.slice(0,3).map(escapeHtml).join(', ')}${sos.length>3?' +'+(sos.length-3)+' more':''}</span></div>
+      <div class="nc-desc">${escapeHtml(n.desc) || '(no description)'}</div>
+      <div>${btns}</div>
+    </div>`;
+  }).join('');
+}
+async function classifyNewCode(i, type){
+  if(ncBusy) return;
+  const n = newCodesList[i];
+  if(!n) return;
+  if(currentProfile?.username !== 'zgta26'){ toast('Not allowed','Only the owner account can classify codes.','red'); return; }
+  const dbType = type==='misc' ? null : type;
+  const table = {wood:'wood_item_types', gear:'gear_item_types', metal:'metal_item_types'}[n.tbl];
+  ncBusy = true;
+  try{
+    const r = await fetch(`${SUPA_URL}/rest/v1/${table}?on_conflict=item_code`, {
+      method:'POST', headers:{...H(),'Prefer':'resolution=merge-duplicates,return=minimal'},
+      body: JSON.stringify([{item_code:n.code, description:n.desc, prod:n.prod, type:dbType}])
+    });
+    if(!r.ok) throw new Error(await r.text());
+    const arr = n.tbl==='wood' ? woodCodes : n.tbl==='metal' ? metalCodes : gearCodes;
+    const map = n.tbl==='wood' ? woodCodesMap : n.tbl==='metal' ? metalCodesMap : gearCodesMap;
+    arr.push({item_code:n.code, description:n.desc, prod:n.prod, type:dbType});
+    if(dbType) map[n.code.trim().toUpperCase()] = dbType;
+    refreshNewCodes(false);
+    render();
+  }catch(e){ toast('Error', e.message, 'red'); }
+  ncBusy = false;
+}
+// ── Prod line defaults (owner only) ─────────────────────────────────────────
+// A default category per prod line, per code list. Apply fills ONLY codes whose type is still NULL
+// (the PATCH carries type=is.null), so a manual classification can never be overwritten.
+const PL_CFG = {
+  wood:  {label:'Wood',       table:'wood_item_types',  arr:()=>woodCodes,  map:()=>woodCodesMap,  btns:'wood',  rerender:()=>renderWoodCodesList()},
+  gear:  {label:'Gear / PVC', table:'gear_item_types',  arr:()=>gearCodes,  map:()=>gearCodesMap,  btns:'gear',  rerender:()=>renderGearCodesList()},
+  metal: {label:'Metal',      table:'metal_item_types', arr:()=>metalCodes, map:()=>metalCodesMap, btns:'metal', rerender:()=>renderMetalCodesList()}
+};
+let plDefaults = {wood:{}, gear:{}, metal:{}};
+let plLoaded = false, plDept = null, plBusy = false;
+async function loadProdlineDefaults(){
+  try{
+    const rows = await sbGet('app_meta','select=value&key=eq.prodline_defaults');
+    if(rows && rows[0] && rows[0].value){
+      const v = JSON.parse(rows[0].value);
+      plDefaults = {wood:v.wood||{}, gear:v.gear||{}, metal:v.metal||{}};
+    }
+  }catch(e){}
+  plLoaded = true;
+}
+async function saveProdlineDefaults(){
+  const r = await fetch(`${SUPA_URL}/rest/v1/app_meta?on_conflict=key`, {
+    method:'POST', headers:{...H(),'Prefer':'resolution=merge-duplicates,return=minimal'},
+    body: JSON.stringify([{key:'prodline_defaults', value:JSON.stringify(plDefaults), updated_at:new Date().toISOString()}])
+  });
+  if(!r.ok) throw new Error(await r.text());
+}
+function plSummary(dept){
+  const by = {};
+  PL_CFG[dept].arr().forEach(r=>{
+    const prod = r.prod; if(!prod) return;
+    const g = by[prod] || (by[prod] = {prod, total:0, unclassified:0, byType:{}});
+    g.total++;
+    if(r.type) g.byType[r.type] = (g.byType[r.type]||0)+1; else g.unclassified++;
+  });
+  return Object.values(by).sort((a,b)=>a.prod.localeCompare(b.prod));
+}
+function plPendingCount(dept){
+  const d = plDefaults[dept] || {};
+  return plSummary(dept).reduce((n,g)=> n + (d[g.prod] ? g.unclassified : 0), 0);
+}
+async function openProdlineDefaults(dept){
+  if(currentProfile?.username !== 'zgta26'){ toast('Not allowed','Only the owner account can do this.','red'); return; }
+  plDept = dept;
+  if(!plLoaded) await loadProdlineDefaults();
+  renderProdlineDefaults();
+  document.getElementById('prodline-defaults-modal').classList.add('open');
+}
+function closeProdlineDefaults(){ document.getElementById('prodline-defaults-modal').classList.remove('open'); }
+function renderProdlineDefaults(){
+  const dept = plDept; if(!dept) return;
+  const cfg = PL_CFG[dept], btns = NC_BUTTONS[cfg.btns], d = plDefaults[dept] || {};
+  const labelOf = Object.fromEntries(btns.map(b=>[b[0],b[1]]));
+  document.getElementById('pl-title').textContent = cfg.label + ' — prod line defaults';
+  const rows = plSummary(dept);
+  document.getElementById('pl-list').innerHTML = rows.length ? rows.map(g=>{
+    const existing = Object.keys(g.byType).map(t=>`${labelOf[t]||t} ${g.byType[t]}`).join(' · ');
+    const b = btns.map(([val,label,cls])=>`<button class="wc-type-btn ${cls}${d[g.prod]===val?' active':''}" onclick="setProdlineDefault('${escapeHtml(g.prod)}','${val}')">${label}</button>`).join('');
+    return `<div class="nc-row">
+      <div class="nc-top"><span class="mono nc-code">${escapeHtml(g.prod)}</span><span class="nc-sos">${g.total} codes · ${g.unclassified} unclassified</span>${existing?`<span class="nc-sos">already: ${escapeHtml(existing)}</span>`:''}</div>
+      <div style="margin-top:6px">${b}</div>
+    </div>`;
+  }).join('') : '<div class="empty"><div class="empty-title">No codes loaded</div></div>';
+  const n = plPendingCount(dept);
+  const btn = document.getElementById('pl-apply-btn');
+  btn.textContent = n ? `Apply to ${n} unclassified code${n>1?'s':''}` : 'Nothing to apply';
+  btn.disabled = !n;
+}
+async function setProdlineDefault(prod, type){
+  if(plBusy || !plDept) return;
+  const d = plDefaults[plDept];
+  if(d[prod]===type) delete d[prod]; else d[prod] = type;
+  renderProdlineDefaults();
+  try{ await saveProdlineDefaults(); }catch(e){ toast('Could not save defaults', e.message, 'red'); }
+}
+// Core: fill unclassified codes on every prod line that has a default. Returns how many codes were set.
+async function runProdlineDefaults(dept){
+  if(!plLoaded) await loadProdlineDefaults();
+  const cfg = PL_CFG[dept], d = plDefaults[dept] || {};
+  const todo = plSummary(dept).filter(g=>d[g.prod] && g.unclassified>0);
+  let done = 0;
+  for(const g of todo){
+    const type = d[g.prod];
+    const r = await fetch(`${SUPA_URL}/rest/v1/${cfg.table}?prod=eq.${encodeURIComponent(g.prod)}&type=is.null`, {
+      method:'PATCH', headers:{...H(),'Prefer':'return=minimal'},
+      body: JSON.stringify({type})
+    });
+    if(!r.ok) throw new Error(await r.text());
+    cfg.arr().forEach(row=>{
+      if(row.prod===g.prod && !row.type){ row.type = type; cfg.map()[String(row.item_code).trim().toUpperCase()] = type; done++; }
+    });
+  }
+  return done;
+}
+async function applyProdlineDefaults(){
+  if(plBusy || !plDept) return;
+  if(currentProfile?.username !== 'zgta26'){ toast('Not allowed','Only the owner account can do this.','red'); return; }
+  const cfg = PL_CFG[plDept];
+  plBusy = true;
+  try{
+    const done = await runProdlineDefaults(plDept);
+    if(done) toast('Defaults applied', `${done} codes categorized by prod line.`, 'green');
+  }catch(e){ toast('Error', e.message, 'red'); }
+  plBusy = false;
+  renderProdlineDefaults();
+  cfg.rerender();
+  refreshNewCodes(false);
+  render();
+}
+// After a code-list CSV upload: fill the newly added (unclassified) codes from the prod line defaults.
+async function autoApplyAfterCodeUpload(dept){
+  try{
+    const n = await runProdlineDefaults(dept);
+    if(n) toast('Defaults applied', `${n} new ${PL_CFG[dept].label} code${n>1?'s':''} categorized by prod line.`, 'green');
+  }catch(e){ toast('Could not apply prod line defaults', e.message, 'red'); }
 }
 async function setWoodCodeTypes(codes, type){
   const dbType = type==='misc' ? null : type;
@@ -5357,7 +5694,7 @@ async function handleGearCodesCSVUpload(file){
       });
       if(!r.ok) throw new Error(await r.text());
     }
-    await loadGearItemTypes();
+    await loadGearItemTypes(); await autoApplyAfterCodeUpload('gear'); refreshNewCodes(false);
     renderGearCodesProdOptions();
     renderGearCodesList();
     status.textContent = `Done — ${gearCodes.length} codes loaded.`;
@@ -5519,7 +5856,7 @@ async function handleMetalCodesCSVUpload(file){
       });
       if(!r.ok) throw new Error(await r.text());
     }
-    await loadMetalItemTypes();
+    await loadMetalItemTypes(); await autoApplyAfterCodeUpload('metal'); refreshNewCodes(false);
     renderMetalCodesProdOptions();
     renderMetalCodesList();
     status.textContent = `Done — ${metalCodes.length} codes loaded.`;
@@ -5713,7 +6050,7 @@ function renderArchive(){
   const q=(document.getElementById('archive-search')?.value||'').toLowerCase();
   const filtered = archivedOrders.filter(g=>{
     if(!q) return true;
-    return [g.so, g.customer, g.via, g.soShip, ...g.travelers.map(t=>t.item+' '+t.desc)].join(' ').toLowerCase().includes(q);
+    return [g.so, g.customer, g.via, g.soShip, ...g.travelers.map(t=>t.item+' '+t.desc), ...visibleCommentsFor(g.so).map(c=>c.body||'')].join(' ').toLowerCase().includes(q);
   });
   const tbody=document.getElementById('archive-tbody');
   const empty=document.getElementById('archive-empty');
@@ -5965,10 +6302,36 @@ function startAutoRefresh(){
         const ok = await refreshAuthToken();
         if(!ok){ await forceReauth('Session expired — please sign in again.'); return; }
       }
-      // No data is downloaded here any more (Supabase egress). This timer only keeps the login
-      // token fresh. Data reloads on boot, the Refresh button, or returning to the app (below).
+      // No bulk data is downloaded here (Supabase egress). The only fetch is ONE tiny app_meta row
+      // (see checkCsvUploaded); a full reload happens only when a new CSV upload is detected.
+      checkCsvUploaded();
     }catch(e){}
   },60000);
+}
+// ── CSV-upload auto-refresh ───────────────────────────────────────────────────
+// Each open screen peeks at app_meta.last_csv_upload once a minute. If it is newer than the value
+// this screen last saw, reload the data. The reload is held while an order is open (currentModalSO)
+// and released when it closes, so nobody loses their place or a half-typed comment.
+let csvSeenStamp = null, pendingCsvReload = false, csvCheckBusy = false;
+async function checkCsvUploaded(){
+  if(csvCheckBusy || document.visibilityState!=='visible' || !currentProfile || !accessToken) return;
+  csvCheckBusy = true;
+  try{
+    if(!pendingCsvReload){
+      const rows = await sbGet('app_meta','select=value&key=eq.last_csv_upload');
+      const stamp = (rows.length && rows[0].value) ? rows[0].value : '';
+      if(csvSeenStamp===null){ csvSeenStamp = stamp; return; }
+      if(stamp===csvSeenStamp) return;
+      pendingCsvReload = true;
+    }
+    if(currentModalSO) return;
+    await Promise.all([loadOrders(),loadPhotos(),loadApprovals(),loadComments(),loadLastCsvUpload(),loadDepartmentBatches(),loadBatchReads(),loadLabelPrints()]);
+    pendingCsvReload = false;
+    lastDataFetchAt = Date.now();
+    updateAll(); render(); refreshNewCodes(true);
+    toast('Updated','A new CSV was uploaded. Data refreshed.','green');
+  }catch(e){}
+  finally{ csvCheckBusy = false; }
 }
 // Reload data when the app comes back to the foreground, but at most once every 5 minutes,
 // so switching away and back doesn't re-download everything each time.
@@ -5983,7 +6346,7 @@ document.addEventListener('visibilitychange', async ()=>{
       if(!ok){ await forceReauth('Session expired — please sign in again.'); return; }
     }
     await Promise.all([loadOrders(),loadPhotos(),loadApprovals(),loadComments(),loadDepartmentBatches(),loadBatchReads(),loadLabelPrints()]);
-    updateAll(); render();
+    updateAll(); render(); refreshNewCodes(true);
   }catch(e){}
 });
  
@@ -6004,7 +6367,7 @@ function toast(title,body,type){
 // ── Keyboard ──────────────────────────────────────────────────────────────────
 document.addEventListener('keydown',e=>{
   if(e.key==='Escape'){
-    closeLB();closeConfirmPhoto();closeConfirmUser();closeAddUser();closeSOModal();closePrintReportModal();closePrintLabelModal();closeHolidaysModal();closeCustomerListModal();closeWoodCodesModal();closeGearCodesModal();closeMetalCodesModal();colorCheckRespond(false);staleCsvRespond(false);shareWarnRespond(false);
+    closeLB();closeConfirmPhoto();closeConfirmUser();closeAddUser();closeSOModal();closePrintReportModal();closePrintLabelModal();closeHolidaysModal();closeCustomerListModal();closeWoodCodesModal();closeGearCodesModal();closeMetalCodesModal();closeNewCodesModal();closeProdlineDefaults();colorCheckRespond(false);staleCsvRespond(false);shareWarnRespond(false);
   }
 });
  
