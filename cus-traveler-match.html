@@ -8,6 +8,7 @@
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700;800&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"></script>
 <style>
 :root{
   --bg:#0f0f11;--surface:#17171a;--surface2:#1e1e22;--surface3:#26262b;
@@ -67,6 +68,12 @@ td{font-family:var(--mono)}
 .results-columns > .card{margin-top:18px}
 #preview-card{position:sticky;top:16px}
 #preview-pages{max-height:900px;overflow-y:auto}
+.rv-block{border-left:4px solid var(--amber);background:var(--surface2);border-radius:6px;padding:12px 14px;margin-top:12px}
+.rv-head{font-size:13px;font-family:var(--mono);font-weight:700}
+.rv-sub{font-size:12px;color:var(--text3);margin-top:2px}
+.rv-hint{font-size:10px;font-weight:700;color:var(--amber);margin-left:6px;font-family:var(--sans)}
+.rv-block table{margin-top:8px;font-size:12px}
+.rv-block button{padding:5px 12px;font-size:12px}
 .dept-box-title{font-size:13px;font-weight:800;display:flex;align-items:center;gap:8px}
 .dept-swatch{width:12px;height:12px;border-radius:3px;display:inline-block}
 .preview-page{border:1px solid var(--border2);border-radius:6px;margin-top:10px;max-width:100%;display:block}
@@ -120,6 +127,8 @@ td{font-family:var(--mono)}
     <div class="tabs">
       <div class="tab active" id="tab-match" onclick="switchTab('match')">Match</div>
       <div class="tab" id="tab-history" onclick="switchTab('history')">History</div>
+      <div class="tab" id="tab-completions" onclick="switchTab('completions')">Completions</div>
+      <div class="tab" id="tab-revision" onclick="switchTab('revision')">Revision</div>
     </div>
 
     <div id="view-match">
@@ -168,6 +177,11 @@ td{font-family:var(--mono)}
           </div>
         </div>
 
+        <div class="card hidden" id="review-card">
+          <div class="section-title">Needs your review <span class="badge badge-warn" id="count-review"></span></div>
+          <div class="section-count">These tickets didn't match exactly, but an order line on the same SO looks close. Pick the line each one belongs to, or choose None of these.</div>
+          <div id="review-body"></div>
+        </div>
         <div class="card">
           <div class="section-title">Unmatched traveler tickets <span class="badge badge-warn" id="count-untrav"></span></div>
           <div class="section-count">Traveler tickets with no matching order line uploaded</div>
@@ -179,6 +193,88 @@ td{font-family:var(--mono)}
           <div class="section-count">Pages in the traveler PDFs that didn't match the expected ticket layout — check the file.</div>
           <table id="tbl-unrec"><thead><tr><th>File</th><th>Page</th></tr></thead><tbody></tbody></table>
         </div>
+      </div>
+    </div>
+
+    <div id="view-completions" class="hidden">
+      <div class="card">
+        <div class="section-title">Import Sage completion register</div>
+        <div class="section-count">Upload the daily Work Ticket Transaction Register PDF (text PDFs are read directly; scanned copies are read by OCR and need your confirmation). Matching travelers in ProdTrack get tagged with the batch number. Nothing is saved until you press Tag.</div>
+        <div class="row" id="comp-drop" style="align-items:center;margin-top:12px;padding:18px;border:2px dashed var(--border);border-radius:10px;flex-wrap:wrap;gap:12px">
+          <input type="file" id="f-register" accept=".pdf" multiple onchange="onRegisterChosen()">
+          <span class="section-count">or drag and drop one or more PDFs here</span>
+          <button id="comp-read-btn" onclick="readRegisters()" disabled>Read register</button>
+        </div>
+        <div class="section-count" id="comp-files" style="margin-top:8px"></div>
+        <div class="err" id="comp-err"></div>
+      </div>
+      <div class="card hidden" id="comp-result-card">
+        <div id="comp-summary"></div>
+        <table id="tbl-comp"><thead><tr><th>Batch</th><th>Traveler #</th><th>SO</th><th>Item Code</th><th>Qty</th><th>Result</th></tr></thead><tbody></tbody></table>
+        <label id="comp-ocr-box" class="hidden" style="display:flex;gap:8px;align-items:center;margin-top:12px;color:var(--amber);font-size:13px"><input type="checkbox" id="comp-ocr-ok" onchange="onOcrOkChange()"> I checked these numbers against the paper register</label>
+        <div class="row" style="margin-top:14px;align-items:center">
+          <button id="comp-apply-btn" onclick="applyCompletions()">Tag travelers</button>
+          <span id="comp-apply-msg" class="section-count"></span>
+          <button id="comp-another-btn" class="hidden" onclick="resetCompletions()">Load another register</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="view-revision" class="hidden">
+      <div class="card">
+        <div class="section-title">Revision <span class="badge badge-warn">test</span></div>
+        <div class="section-count">Carry travelers over to a revised Production Order. Upload the original (the one that already has travelers on it, usually a scan), the revised order from Sage, and any new Work Ticket Travelers. Nothing here is saved or sent anywhere. It only reads the files and builds a stamped copy you can download.</div>
+        <div class="row" style="align-items:flex-start;margin-top:12px">
+          <div class="upload-slot">
+            <label>1. Original order (with travelers)</label>
+            <input type="file" id="f-rev-orig" accept=".pdf" onchange="onRevFilesChosen()">
+            <div class="filelist" id="fl-rev-orig">No file chosen</div>
+          </div>
+          <div class="upload-slot">
+            <label>2. Revised order (from Sage)</label>
+            <input type="file" id="f-rev-new" accept=".pdf" onchange="onRevFilesChosen()">
+            <div class="filelist" id="fl-rev-new">No file chosen</div>
+          </div>
+          <div class="upload-slot">
+            <label>3. New travelers (optional)</label>
+            <input type="file" id="f-rev-trav" accept=".pdf" multiple onchange="onRevFilesChosen()">
+            <div class="filelist" id="fl-rev-trav">No files chosen</div>
+          </div>
+        </div>
+        <div class="row" style="margin-top:16px">
+          <button id="rev-read-btn" onclick="readRevision()" disabled>Read files</button>
+          <button class="secondary" onclick="resetRevision()">Clear</button>
+        </div>
+        <div class="err" id="rev-err"></div>
+      </div>
+      <div class="card hidden" id="rev-orig-card">
+        <div class="section-title">Original order lines <span class="badge badge-warn" id="count-rev-orig"></span></div>
+        <div class="section-count" id="rev-orig-sub"></div>
+        <div class="results-columns">
+          <div style="flex:1;min-width:380px">
+            <table id="tbl-rev-orig"><thead><tr><th>Item code</th><th>Qty</th><th>Description (as read)</th><th>Traveler #</th><th></th></tr></thead><tbody></tbody></table>
+            <button class="secondary" style="margin-top:10px" onclick="revAddRow()">+ Add a line</button>
+          </div>
+          <div id="rev-orig-preview" style="flex:1;min-width:320px;max-height:900px;overflow-y:auto"></div>
+        </div>
+        <label style="display:flex;gap:8px;align-items:center;margin-top:14px;color:var(--amber);font-size:13px"><input type="checkbox" id="rev-ok" onchange="revOkChange()"> I checked these codes, quantities and numbers against the scan, and it is the same SO as the revised order (the tool can't read the SO off a scan)</label>
+        <div class="row" style="margin-top:12px;align-items:center">
+          <button id="rev-compare-btn" onclick="revCompare()" disabled>Compare with revised order</button>
+        </div>
+        <div class="err" id="rev-err2"></div>
+      </div>
+      <div class="card hidden" id="rev-result-card">
+        <div class="section-title">Revised order <span class="badge badge-ok" id="count-rev-lines"></span></div>
+        <div class="section-count" id="rev-summary"></div>
+        <table id="tbl-rev-lines"><thead><tr><th>Prod line</th><th>Item code</th><th>Qty</th><th>Description</th><th>Traveler #</th><th>Source</th></tr></thead><tbody></tbody></table>
+        <div id="rev-obsolete-wrap"></div>
+        <div id="rev-unmatched-wrap"></div>
+        <div class="row" style="margin-top:14px;align-items:center">
+          <button id="rev-build-btn" onclick="revBuild()">Build revised order PDF</button>
+          <button class="secondary hidden" id="rev-dl-btn" onclick="revDownload()">Download revised order PDF</button>
+        </div>
+        <div class="err" id="rev-err3"></div>
+        <div id="rev-preview-pages" style="margin-top:12px;max-height:900px;overflow-y:auto"></div>
       </div>
     </div>
 
@@ -220,6 +316,7 @@ let currentUser = null, currentProfile = null;
 let ordersFiles = [], travelersFiles = [];
 let historyTimer = null;
 let lastMatched = [], lastOrderBytesByFile = {}, lastAllItemsByFile = {}, lastStampedPdfBytes = null, lastStampedPageMap = null;
+let lastUnmatchedOrders = [], lastUnmatchedTickets = [], lastUnrecognized = [], reviewDismissed = new Set(), reviewBusy = false;
 
 const H = () => ({'Content-Type':'application/json','apikey':ANON_KEY,'Authorization':'Bearer '+(accessToken||ANON_KEY)});
 
@@ -332,8 +429,12 @@ tryRestoreSession();
 function switchTab(name){
   document.getElementById('tab-match').classList.toggle('active', name==='match');
   document.getElementById('tab-history').classList.toggle('active', name==='history');
+  document.getElementById('tab-completions').classList.toggle('active', name==='completions');
+  document.getElementById('tab-revision').classList.toggle('active', name==='revision');
   document.getElementById('view-match').classList.toggle('hidden', name!=='match');
   document.getElementById('view-history').classList.toggle('hidden', name!=='history');
+  document.getElementById('view-completions').classList.toggle('hidden', name!=='completions');
+  document.getElementById('view-revision').classList.toggle('hidden', name!=='revision');
 }
 
 // ── File selection ────────────────────────────────────────────────────────
@@ -349,6 +450,7 @@ function resetBatch(){
   ordersFiles = []; travelersFiles = [];
   lastMatched = []; lastOrderBytesByFile = {}; lastAllItemsByFile = {}; lastStampedPdfBytes = null; lastStampedPageMap = null;
   activeDeptFilter = null; soClassifications = {};
+  lastUnmatchedOrders = []; lastUnmatchedTickets = []; lastUnrecognized = []; reviewDismissed = new Set();
   document.getElementById('f-orders').value = '';
   document.getElementById('f-travelers').value = '';
   document.getElementById('fl-orders').textContent = 'No files chosen';
@@ -854,12 +956,78 @@ function runMatchLogic(orderResults, travelerResults){
     const idx = ticketPool.findIndex(t =>
       t.so === it.so &&
       t.itemCode.toUpperCase() === it.itemCode.toUpperCase() &&
-      normText(t.description) === normText(it.description)
+      normText(t.description).replace(/\s+/g,'') === normText(it.description).replace(/\s+/g,'')   // spaces ignored: 41"ARBOR == 41" ARBOR
     );
     if(idx === -1) unmatchedOrders.push(it);
     else { const t = ticketPool.splice(idx,1)[0]; matched.push({...it, travelerNo:t.travelerNo}); }
   });
   return {matched, unmatchedOrders, unmatchedTickets: ticketPool};
+}
+
+// ── Review: a ticket that didn't match exactly but has a close order line ──
+// "Close" = an unmatched line on the SAME SO with the same item code, or the same
+// description (spaces ignored). Nothing is matched until the user clicks.
+const noSpaces = s => normText(s).replace(/\s+/g,'');
+const reviewKey = t => t.fileName + '|' + t.page;
+function reviewHint(o, t){
+  const h = [];
+  if(o.itemCode.toUpperCase() === t.itemCode.toUpperCase()) h.push('same item code');
+  if(noSpaces(o.description) === noSpaces(t.description)) h.push('same description');
+  return h;
+}
+function reviewCandidates(t){
+  const pool = lastUnmatchedOrders.filter(o => o.so === t.so);
+  if(!pool.some(o => reviewHint(o, t).length)) return [];
+  return pool.slice().sort((a,b) => Number(reviewHint(b,t).length>0) - Number(reviewHint(a,t).length>0));
+}
+function renderReview(){
+  const blocks = [];
+  lastUnmatchedTickets.forEach((t, ti) => {
+    if(reviewDismissed.has(reviewKey(t))) return;
+    const cands = reviewCandidates(t);
+    if(!cands.length) return;
+    const rows = cands.map(o => {
+      const hint = reviewHint(o, t).join(', ');
+      return `<tr><td>${escapeHtml(o.itemCode)}${hint ? `<span class="rv-hint">${escapeHtml(hint)}</span>` : ''}</td><td>${escapeHtml(o.description)}</td><td>${Number(o.qty).toFixed(2)}</td><td><button onclick="confirmReviewMatch(${ti},${lastUnmatchedOrders.indexOf(o)})">Match this one</button></td></tr>`;
+    }).join('');
+    blocks.push(`<div class="rv-block"><div class="rv-head">Traveler ${escapeHtml(t.travelerNo)} · SO ${escapeHtml(t.so)} · ${escapeHtml(t.itemCode)} · qty ${t.qty==null?'?':Number(t.qty).toFixed(2)}</div><div class="rv-sub">${escapeHtml(t.description)} <span style="opacity:.6">(${escapeHtml(t.fileName)})</span></div><table><thead><tr><th>Order line item</th><th>Order line description</th><th>Qty</th><th></th></tr></thead><tbody>${rows}</tbody></table><div style="margin-top:8px"><button class="secondary" onclick="dismissReview(${ti})">None of these</button></div></div>`);
+  });
+  document.getElementById('review-card').classList.toggle('hidden', !blocks.length);
+  document.getElementById('count-review').textContent = blocks.length;
+  document.getElementById('review-body').innerHTML = blocks.join('');
+}
+function dismissReview(ti){
+  const t = lastUnmatchedTickets[ti]; if(!t) return;
+  reviewDismissed.add(reviewKey(t));
+  renderReview();
+}
+async function confirmReviewMatch(ti, oi){
+  const t = lastUnmatchedTickets[ti], it = lastUnmatchedOrders[oi];
+  if(!t || !it || it.so !== t.so || reviewBusy) return;
+  reviewBusy = true;
+  const errEl = document.getElementById('run-err'); errEl.textContent = '';
+  try{
+    const matchedBy = currentProfile.full_name || currentProfile.username || 'unknown';
+    const r = await fetch(`${SUPA_URL}/rest/v1/cus_traveler_matches`,{
+      method:'POST', headers:{...H(), 'Prefer':'return=minimal'},
+      body:JSON.stringify([{so:it.so, item_code:it.itemCode, description:it.description, qty:it.qty, prod_line:it.prodLine, traveler_no:t.travelerNo, matched_by:matchedBy}])
+    });
+    if(!r.ok) throw new Error('Could not save this match to the log. Nothing was changed. Try again.');
+    lastUnmatchedTickets.splice(ti,1); lastUnmatchedOrders.splice(oi,1);
+    lastMatched.push({...it, travelerNo:t.travelerNo});
+    lastStampedPdfBytes = null; lastStampedPageMap = null;
+    document.getElementById('download-stamped-btn').classList.remove('hidden');
+    document.getElementById('upload-batch-btn').classList.remove('hidden');
+    renderResults(lastMatched, lastUnmatchedOrders, lastUnmatchedTickets, lastUnrecognized);
+    const built = await buildStampedPdf(lastOrderBytesByFile, lastMatched, lastAllItemsByFile);
+    lastStampedPdfBytes = built.bytes; lastStampedPageMap = built.pageMap;
+    await renderPdfPreview(lastStampedPdfBytes, lastStampedPageMap, lastMatched);
+    if(document.getElementById('view-history') && !document.getElementById('view-history').classList.contains('hidden')) loadHistory(document.getElementById('history-search').value);
+  }catch(e){
+    errEl.textContent = e.message || 'Something went wrong saving this match.';
+  }finally{
+    reviewBusy = false;
+  }
 }
 
 // ── Recolor highlight rectangles in the source PDF by department ──────────
@@ -1089,6 +1257,7 @@ async function runBatch(){
     }
     const {matched, unmatchedOrders, unmatchedTickets} = runMatchLogic(orderResults, travelerResults);
     lastMatched = matched;
+    lastUnmatchedOrders = unmatchedOrders; lastUnmatchedTickets = unmatchedTickets; lastUnrecognized = unrecognizedAll; reviewDismissed = new Set();
     lastOrderBytesByFile = orderBytesByFile;
     lastAllItemsByFile = allItemsByFile;
     lastStampedPdfBytes = null;
@@ -1188,6 +1357,7 @@ function renderResults(matched, unmatchedOrders, unmatchedTickets, unrecognized)
     utBody.insertAdjacentHTML('beforeend', `<tr><td>${escapeHtml(t.so)}</td><td>${escapeHtml(t.itemCode)}</td><td>${escapeHtml(t.description)}</td><td>${escapeHtml(t.travelerNo)}</td><td>${escapeHtml(t.fileName)}</td></tr>`);
   });
   document.getElementById('empty-untrav').classList.toggle('hidden', unmatchedTickets.length>0);
+  renderReview();
 
   const unrecCard = document.getElementById('unrecognized-card');
   if(unrecognized.length){
@@ -1225,6 +1395,562 @@ async function loadHistory(q){
     });
     document.getElementById('empty-history').classList.toggle('hidden', (rows||[]).length>0);
   }catch(e){}
+}
+
+// ── Completions: Sage Work Ticket Transaction Register → tag orders ───────
+// Text-layer PDFs only (no OCR). Parser verified against register 15803:
+// 61/61 tickets, extended costs summed to the printed Total Cost exactly.
+let compFiles = [], compPlan = null, compWillTag = 0;
+function onOcrOkChange(){ document.getElementById('comp-apply-btn').disabled = !(compWillTag && document.getElementById('comp-ocr-ok').checked); }
+function setCompFiles(list){
+  const all = Array.from(list || []);
+  compFiles = all.filter(f=>/\.pdf$/i.test(f.name));
+  compPlan = null;
+  document.getElementById('comp-result-card').classList.add('hidden');
+  document.getElementById('comp-another-btn').classList.add('hidden');
+  document.getElementById('comp-apply-msg').textContent = '';
+  document.getElementById('comp-err').textContent = (all.length && !compFiles.length) ? 'Only PDF files can be read here.' : '';
+  document.getElementById('comp-files').textContent = compFiles.map(f=>f.name).join('  ·  ');
+  document.getElementById('comp-read-btn').disabled = !compFiles.length;
+}
+function onRegisterChosen(){ setCompFiles(document.getElementById('f-register').files); }
+function resetCompletions(){ document.getElementById('f-register').value = ''; setCompFiles([]); }
+(function(){
+  const z = document.getElementById('comp-drop');
+  ['dragenter','dragover'].forEach(ev=>z.addEventListener(ev, e=>{ e.preventDefault(); z.style.borderColor = 'var(--accent)'; }));
+  ['dragleave','drop'].forEach(ev=>z.addEventListener(ev, e=>{ e.preventDefault(); z.style.borderColor = ''; }));
+  z.addEventListener('drop', e=>{
+    const fs = e.dataTransfer && e.dataTransfer.files;
+    if(fs && fs.length){ document.getElementById('f-register').value = ''; setCompFiles(fs); }
+  });
+})();
+const stripZeros = v => String(v||'').replace(/^0+/,'');
+
+// Scanned registers have no text layer. They are read by OCR and ALWAYS need the user's
+// confirmation before anything is tagged (see readRegisters / comp-ocr-ok).
+function ocrTextToLines(text){
+  // OCR sometimes reads the decimal point in a cost as a comma ("409,21"); real thousands
+  // separators are followed by 3 digits, so ",dd" at the end of a token is a misread period.
+  const fixTok = t => {
+    t = t.replace(/^[|~'"`*]+|[.,;|~'"`]+$/g, '');                  // stray punctuation OCR glues onto a token ("000000448944." / "0700567:")
+    if(/^[0Oo]{5,}\d{5,}$/.test(t)) t = t.replace(/[Oo]/g, '0');      // letter O read instead of a leading zero
+    return /^\d+,\d{2}$/.test(t) ? t.replace(',', '.') : t;
+  };
+  const out = [];
+  String(text||'').split('\n').forEach(l=>{
+    const toks = l.trim().split(/\s+/).map(fixTok).filter(t=>t);
+    if(toks.length) out.push({toks, raw:toks.join(' ')});
+  });
+  return out;
+}
+async function ocrRegisterLines(doc, onProgress){
+  if(typeof Tesseract === 'undefined') throw new Error('The OCR library did not load. Check the connection and reload this page.');
+  const worker = await Tesseract.createWorker('eng');
+  try{
+    await worker.setParameters({tessedit_pageseg_mode:'6'});
+    let all = [];
+    for(let p=1;p<=doc.numPages;p++){
+      if(onProgress) onProgress(`OCR page ${p} of ${doc.numPages}…`);
+      const page = await doc.getPage(p);
+      const vp = page.getViewport({scale:3});
+      const cv = document.createElement('canvas');
+      cv.width = Math.ceil(vp.width); cv.height = Math.ceil(vp.height);
+      await page.render({canvasContext:cv.getContext('2d'), viewport:vp}).promise;
+      const res = await worker.recognize(cv);
+      all = all.concat(ocrTextToLines(res.data.text));
+    }
+    return all;
+  } finally { await worker.terminate(); }
+}
+
+// ── Revision tab (TEST) ───────────────────────────────────────────────────
+// Carries travelers from an ORIGINAL production order (usually a scan with handwritten numbers) onto a
+// REVISED order from Sage. It only reads files and builds a stamped PDF. It writes NOTHING to Supabase,
+// the Inbox or the match history.
+let revOrigFile = null, revNewFile = null, revTravFiles = [];
+let revOrigPreviews = [], revOrigRows = [], revNew = null, revTickets = null, revPlan = null;
+let revStampedBytes = null, revBusy = false;
+const escAttr = s => escapeHtml(s).replace(/"/g, '&quot;');
+
+function onRevFilesChosen(){
+  revOrigFile = document.getElementById('f-rev-orig').files[0] || null;
+  revNewFile = document.getElementById('f-rev-new').files[0] || null;
+  revTravFiles = Array.from(document.getElementById('f-rev-trav').files || []);
+  document.getElementById('fl-rev-orig').textContent = revOrigFile ? revOrigFile.name : 'No file chosen';
+  document.getElementById('fl-rev-new').textContent = revNewFile ? revNewFile.name : 'No file chosen';
+  document.getElementById('fl-rev-trav').textContent = revTravFiles.length ? revTravFiles.map(f=>f.name).join(', ') : 'No files chosen';
+  document.getElementById('rev-read-btn').disabled = !(revOrigFile && revNewFile);
+}
+function resetRevision(){
+  ['f-rev-orig','f-rev-new','f-rev-trav'].forEach(id => document.getElementById(id).value = '');
+  onRevFilesChosen();
+  revOrigPreviews = []; revOrigRows = []; revNew = null; revTickets = null; revPlan = null; revStampedBytes = null;
+  document.getElementById('rev-err').textContent = '';
+  document.getElementById('rev-orig-card').classList.add('hidden');
+  document.getElementById('rev-result-card').classList.add('hidden');
+}
+
+// Scans of handwritten orders: blue pen and highlighter sit right on top of the item code and qty, which
+// is what breaks OCR. Blue ink is wiped to white and light (highlighter / paper) colours are pushed to
+// white, so only the black print is left. Black or red pen is NOT removed by this.
+function cleanScanCanvas(cv){
+  const ctx = cv.getContext('2d');
+  const img = ctx.getImageData(0, 0, cv.width, cv.height), d = img.data;
+  for(let i=0;i<d.length;i+=4){
+    const r=d[i], g=d[i+1], b=d[i+2];
+    let v = 0.299*r + 0.587*g + 0.114*b;
+    if(b - r > 25 && b >= g) v = 255;     // blue ink
+    else if(v > 150) v = 255;             // highlighter and paper
+    d[i]=v; d[i+1]=v; d[i+2]=v; d[i+3]=255;
+  }
+  ctx.putImageData(img, 0, 0);
+}
+async function ocrOrderPages(buf, onProgress){
+  if(typeof Tesseract === 'undefined') throw new Error('The OCR library did not load. Check the connection and reload this page.');
+  const doc = await pdfjsLib.getDocument({data:new Uint8Array(buf.slice(0))}).promise;
+  const worker = await Tesseract.createWorker('eng');
+  const pages = [], previews = [];
+  try{
+    await worker.setParameters({tessedit_pageseg_mode:'6'});
+    for(let p=1;p<=doc.numPages;p++){
+      if(onProgress) onProgress(`Reading original, page ${p} of ${doc.numPages}…`);
+      const page = await doc.getPage(p);
+      const vp = page.getViewport({scale:3});
+      const cv = document.createElement('canvas');
+      cv.width = Math.ceil(vp.width); cv.height = Math.ceil(vp.height);
+      await page.render({canvasContext:cv.getContext('2d'), viewport:vp}).promise;
+      const pv = document.createElement('canvas');           // untouched small copy for the on-screen preview
+      pv.width = Math.round(cv.width*0.45); pv.height = Math.round(cv.height*0.45);
+      pv.getContext('2d').drawImage(cv, 0, 0, pv.width, pv.height);
+      previews.push(pv.toDataURL('image/jpeg', 0.8));
+      cleanScanCanvas(cv);
+      const res = await worker.recognize(cv);
+      pages.push(res.data.text);
+    }
+  } finally { await worker.terminate(); }
+  return {pages, previews};
+}
+// OCR text -> order lines. Prod lines are not read (too easily lost under pen marks); only code, qty and
+// wording are used. Junk between the unit and the quantity (pen marks) is tolerated.
+function parseOcrOrderItems(pages){
+  const items = [];
+  const itemRe = /^(\S+)\s+([A-Za-z]{1,4})\s+(?:.*\s)?([\d,]+\.\d{2})\s+([\d,]+\.\d{2})$/;
+  const cleanCode = t => t.replace(/^[|~'"`*.,;:]+|[|~'"`*.,;:]+$/g, '').toUpperCase();
+  pages.forEach((text, pi) => {
+    let cur = null;
+    const flush = () => { if(cur){ cur.desc = normText(cur.d.join(' ')); delete cur.d; items.push(cur); } cur = null; };
+    String(text||'').split('\n').forEach(raw => {
+      const line = raw.trim();
+      if(!line) return;
+      if(/^\d{4}(\s+\S{1,3})?$/.test(line)){ flush(); return; }
+      const m = line.match(itemRe);
+      if(m){ flush(); cur = {code:cleanCode(m[1]), qty:parseFloat(m[3].replace(/,/g,'')), d:[], page:pi, num:''}; return; }
+      if(/^Printed:/i.test(line)){ flush(); return; }
+      if(cur) cur.d.push(line);
+    });
+    flush();
+  });
+  return items;
+}
+
+// Original rows (typed/checked by the user) vs revised lines. A revised line gets a number only when it
+// is certain: a NEW traveler matched it, or an original line with the same code, same qty and same wording
+// (spaces ignored) carried one. Same code and qty but different wording is a "check" line, left for the
+// user to decide. Nothing is guessed.
+function buildRevisionPlan(origRows, revItems, newByKey){
+  const claimed = new Set();
+  const lines = revItems.map(it => ({it, src:'none', num:'', origIdx:-1, origDesc:'', keep:false}));
+  lines.forEach(L => {
+    const t = newByKey[L.it.page + '|' + L.it.y];
+    if(t){ L.src = 'new'; L.num = t.travelerNo; }
+  });
+  lines.forEach(L => {
+    if(L.src !== 'none') return;
+    const cands = origRows.map((o,i) => ({o,i})).filter(({o,i}) => !claimed.has(i) && o.code === String(L.it.itemCode).toUpperCase() && Number(o.qty) === Number(L.it.qty));
+    if(!cands.length) return;
+    const exact = cands.find(({o}) => noSpaces(o.desc||'') === noSpaces(L.it.description));
+    const c = exact || cands[0];
+    claimed.add(c.i); L.origIdx = c.i; L.origDesc = c.o.desc || '';
+    if(!c.o.num) L.src = 'none-orig';
+    else { L.src = exact ? 'carried' : 'check'; L.num = c.o.num; }
+  });
+  return {lines, origRows};
+}
+function revFinal(){
+  const kept = new Set(), stamps = [];
+  revPlan.lines.forEach(L => {
+    let num = '';
+    if(L.src === 'new') num = L.num;
+    else if(L.src === 'carried' || (L.src === 'check' && L.keep)){ num = L.num; kept.add(L.origIdx); }
+    if(num) stamps.push({...L.it, travelerNo:num});
+  });
+  const obsolete = revPlan.origRows.map((o,i) => ({o,i})).filter(({o,i}) => o.num && !kept.has(i));
+  return {stamps, obsolete};
+}
+
+async function readRevision(){
+  if(revBusy) return;
+  revBusy = true;
+  const btn = document.getElementById('rev-read-btn'), err = document.getElementById('rev-err');
+  err.textContent = '';
+  document.getElementById('rev-orig-card').classList.add('hidden');
+  document.getElementById('rev-result-card').classList.add('hidden');
+  btn.disabled = true;
+  try{
+    btn.innerHTML = '<span class="spinner"></span>Reading revised order…';
+    const r = await pdfFileToPagesWithPos(revNewFile);
+    const res = parseOrderPDF(r.pages, revNewFile.name);
+    if(!res.cusItems.length) throw new Error('No order lines were found in the revised order. It should be the PDF from Sage, not a scan.');
+    const trRes = [];
+    for(const f of revTravFiles){ const t = await pdfFileToPagesWithPos(f); trRes.push(parseTravelerPDF(t.pages, f.name)); }
+    revNew = {res, bytes:r.bytes, name:revNewFile.name};
+    revTickets = runMatchLogic([res], trRes);
+    const buf = await revOrigFile.arrayBuffer();
+    const {pages, previews} = await ocrOrderPages(buf, m => { btn.innerHTML = '<span class="spinner"></span>' + m; });
+    revOrigPreviews = previews;
+    revOrigRows = parseOcrOrderItems(pages);
+    revPlan = null; revStampedBytes = null;
+    document.getElementById('rev-ok').checked = false;
+    document.getElementById('rev-compare-btn').disabled = true;
+    document.getElementById('rev-err2').textContent = '';
+    renderRevOrig();
+  }catch(e){
+    err.textContent = e.message || 'Something went wrong reading these files.';
+  }finally{
+    btn.disabled = !(revOrigFile && revNewFile); btn.textContent = 'Read files'; revBusy = false;
+  }
+}
+function renderRevOrig(){
+  document.getElementById('rev-orig-card').classList.remove('hidden');
+  document.getElementById('count-rev-orig').textContent = revOrigRows.length;
+  document.getElementById('rev-orig-sub').textContent = `Read from the scan for revised SO ${revNew.res.so}. Check each code and qty against the scan on the right, fix anything wrong, remove junk rows, add any line that was missed, and type the handwritten traveler # beside each line (leave blank if it has none).`;
+  document.querySelector('#tbl-rev-orig tbody').innerHTML = revOrigRows.map((o,i) =>
+    `<tr><td><input type="text" value="${escAttr(o.code)}" style="width:130px;padding:4px 6px;font-size:12px" oninput="revEdit(${i},'code',this.value)"></td>`
+    + `<td><input type="text" value="${escAttr(o.qty)}" style="width:64px;padding:4px 6px;font-size:12px" oninput="revEdit(${i},'qty',this.value)"></td>`
+    + `<td style="font-size:11px;color:var(--text3);max-width:260px">${escapeHtml(o.desc||'')}</td>`
+    + `<td><input type="text" value="${escAttr(o.num)}" placeholder="none" style="width:90px;padding:4px 6px;font-size:12px" oninput="revEdit(${i},'num',this.value)"></td>`
+    + `<td><button class="secondary" style="padding:3px 9px" title="Remove this row" onclick="revDelRow(${i})">×</button></td></tr>`).join('');
+  document.getElementById('rev-orig-preview').innerHTML = revOrigPreviews.map((u,i) =>
+    `<div class="section-count" style="margin-top:${i?10:0}px">Original, page ${i+1} of ${revOrigPreviews.length}</div><img src="${u}" style="width:100%;border:1px solid var(--border2);border-radius:6px">`).join('');
+}
+function revInvalidate(){
+  revPlan = null; revStampedBytes = null;
+  document.getElementById('rev-result-card').classList.add('hidden');
+}
+function revEdit(i, k, v){ if(revOrigRows[i]){ revOrigRows[i][k] = v; revInvalidate(); } }
+function revDelRow(i){ revOrigRows.splice(i,1); revInvalidate(); renderRevOrig(); }
+function revAddRow(){ revOrigRows.push({code:'', qty:'', desc:'', page:0, num:''}); revInvalidate(); renderRevOrig(); }
+function revOkChange(){ document.getElementById('rev-compare-btn').disabled = !document.getElementById('rev-ok').checked; }
+
+function revCompare(){
+  const err = document.getElementById('rev-err2'); err.textContent = '';
+  const rows = [];
+  for(let i=0;i<revOrigRows.length;i++){
+    const o = revOrigRows[i];
+    const code = String(o.code||'').trim().toUpperCase();
+    const qty = Number(String(o.qty).replace(/,/g,''));
+    const num = String(o.num||'').trim();
+    if(!code){ err.textContent = `Row ${i+1}: the item code is empty. Fill it in or remove the row.`; return; }
+    if(!(qty > 0)){ err.textContent = `Row ${i+1} (${code}): the qty is not a number.`; return; }
+    if(num && !/^\d{3,9}$/.test(num)){ err.textContent = `Row ${i+1} (${code}): the traveler # should be digits only.`; return; }
+    rows.push({code, qty, desc:o.desc||'', num});
+  }
+  const newByKey = {};
+  revTickets.matched.forEach(m => { newByKey[m.page + '|' + m.y] = m; });
+  revPlan = buildRevisionPlan(rows, revNew.res.cusItems, newByKey);
+  revStampedBytes = null;
+  renderRevResult();
+}
+function renderRevResult(){
+  const card = document.getElementById('rev-result-card');
+  card.classList.remove('hidden');
+  const fin = revFinal();
+  document.getElementById('count-rev-lines').textContent = revPlan.lines.length;
+  const nNew = revPlan.lines.filter(L=>L.src==='new').length, nCar = revPlan.lines.filter(L=>L.src==='carried').length;
+  const nChk = revPlan.lines.filter(L=>L.src==='check').length;
+  document.getElementById('rev-summary').textContent = `SO ${revNew.res.so} · ${nNew} new traveler${nNew===1?'':'s'} · ${nCar} carried over from the original${nChk ? ` · ${nChk} to check` : ''} · ${fin.obsolete.length} old traveler${fin.obsolete.length===1?'':'s'} no longer on the order`;
+  const tb = document.querySelector('#tbl-rev-lines tbody');
+  tb.innerHTML = revPlan.lines.map((L,i) => {
+    let src;
+    if(L.src==='new') src = '<span class="badge badge-ok">New traveler</span>';
+    else if(L.src==='carried') src = '<span class="badge badge-ok">Carried over</span>';
+    else if(L.src==='check') src = `<span class="badge badge-warn">Check wording</span><div class="section-count" style="margin-top:4px">Original read as: ${escapeHtml(L.origDesc)}</div><select onchange="revSetKeep(${i}, this.value==='keep')" style="margin-top:4px"><option value="drop"${L.keep?'':' selected'}>Don't carry ${escapeHtml(L.num)} over</option><option value="keep"${L.keep?' selected':''}>Keep ${escapeHtml(L.num)} on this line</option></select>`;
+    else if(L.src==='none-orig') src = '<span style="color:var(--text3)">No traveler (none on original)</span>';
+    else src = '<span style="color:var(--text3)">No traveler (not on original)</span>';
+    const shown = (L.src==='new' || L.src==='carried' || (L.src==='check' && L.keep)) ? L.num : '';
+    return `<tr><td>${escapeHtml(L.it.prodLine)}</td><td>${escapeHtml(L.it.itemCode)}</td><td>${Number(L.it.qty).toFixed(2)}</td><td style="font-size:11px">${escapeHtml(L.it.description)}</td><td style="font-weight:700">${escapeHtml(shown)}</td><td>${src}</td></tr>`;
+  }).join('');
+  document.getElementById('rev-obsolete-wrap').innerHTML = fin.obsolete.length
+    ? `<div class="section-title" style="margin-top:18px">Old travelers no longer on the revised order <span class="badge badge-warn">${fin.obsolete.length}</span></div><div class="section-count">Numbers from the original that no line on the revised order carries any more.</div><table><thead><tr><th>Traveler #</th><th>Item code</th><th>Qty</th><th>Description (as read)</th></tr></thead><tbody>${fin.obsolete.map(({o}) => `<tr><td style="font-weight:700">${escapeHtml(o.num)}</td><td>${escapeHtml(o.code)}</td><td>${Number(o.qty).toFixed(2)}</td><td style="font-size:11px">${escapeHtml(o.desc)}</td></tr>`).join('')}</tbody></table>`
+    : '';
+  const un = revTickets.unmatchedTickets;
+  document.getElementById('rev-unmatched-wrap').innerHTML = un.length
+    ? `<div class="section-title" style="margin-top:18px">New travelers that matched no revised line <span class="badge badge-warn">${un.length}</span></div><div class="section-count">Check the SO, item code and wording on these. They were not stamped.</div><table><thead><tr><th>SO</th><th>Item code</th><th>Description</th><th>Traveler #</th><th>Source file</th></tr></thead><tbody>${un.map(t => `<tr><td>${escapeHtml(t.so)}</td><td>${escapeHtml(t.itemCode)}</td><td>${escapeHtml(t.description)}</td><td>${escapeHtml(t.travelerNo)}</td><td>${escapeHtml(t.fileName)}</td></tr>`).join('')}</tbody></table>`
+    : '';
+  document.getElementById('rev-dl-btn').classList.add('hidden');
+  document.getElementById('rev-preview-pages').innerHTML = '';
+  document.getElementById('rev-err3').textContent = '';
+}
+function revSetKeep(i, keep){
+  if(!revPlan || !revPlan.lines[i]) return;
+  revPlan.lines[i].keep = keep; revStampedBytes = null;
+  renderRevResult();
+}
+async function revBuild(){
+  if(!revPlan) return;
+  const err = document.getElementById('rev-err3'); err.textContent = '';
+  const btn = document.getElementById('rev-build-btn');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Building…';
+  // buildStampedPdf reads the Match tab's lastMatched/soClassifications (for *HOT*). Park them so a
+  // Match run in the same session can never leak a HOT stamp onto this PDF.
+  const savedMatched = lastMatched, savedClass = soClassifications;
+  lastMatched = []; soClassifications = {};
+  try{
+    const fin = revFinal();
+    const built = await buildStampedPdf({[revNew.name]:revNew.bytes}, fin.stamps, {[revNew.name]:revNew.res.allItems});
+    revStampedBytes = built.bytes;
+    const wrap = document.getElementById('rev-preview-pages'); wrap.innerHTML = '';
+    const doc = await pdfjsLib.getDocument({data:built.bytes.slice(0)}).promise;
+    for(let p=1;p<=doc.numPages;p++){
+      const page = await doc.getPage(p);
+      const vp = page.getViewport({scale:1.3});
+      const cv = document.createElement('canvas');
+      cv.width = vp.width; cv.height = vp.height; cv.style.cssText = 'width:100%;max-width:800px;border:1px solid var(--border2);border-radius:6px;margin-bottom:8px;display:block';
+      await page.render({canvasContext:cv.getContext('2d'), viewport:vp}).promise;
+      wrap.appendChild(cv);
+    }
+    document.getElementById('rev-dl-btn').classList.remove('hidden');
+  }catch(e){
+    err.textContent = 'Could not build the revised order PDF: ' + (e.message||e);
+  }finally{
+    lastMatched = savedMatched; soClassifications = savedClass;
+    btn.disabled = false; btn.textContent = 'Build revised order PDF';
+  }
+}
+function revDownload(){
+  if(!revStampedBytes) return;
+  const url = URL.createObjectURL(new Blob([revStampedBytes], {type:'application/pdf'}));
+  const a = document.createElement('a');
+  a.href = url; a.download = 'revised-order-stamped.pdf';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
+
+
+async function parseRegisterFile(file, onProgress){
+  const buf = await file.arrayBuffer();
+  const doc = await pdfjsLib.getDocument({data:new Uint8Array(buf)}).promise;
+  const lines = [];
+  let textItems = 0;
+  for(let p=1;p<=doc.numPages;p++){
+    const page = await doc.getPage(p);
+    const tc = await page.getTextContent();
+    textItems += tc.items.filter(it=>it.str && it.str.trim()).length;
+    const byY = {};
+    for(const it of tc.items){
+      const y = Math.round(it.transform[5]);
+      (byY[y] = byY[y] || []).push({x:it.transform[4], s:it.str});
+    }
+    for(const y of Object.keys(byY).map(Number).sort((a,b)=>b-a)){
+      const toks = byY[y].sort((a,b)=>a.x-b.x).map(i=>i.s.trim()).filter(t=>t);
+      if(toks.length) lines.push({toks, raw:toks.join(' ')});
+    }
+  }
+  if(textItems === 0) return parseRegisterLines(await ocrRegisterLines(doc, onProgress), file.name, true);
+  return parseRegisterLines(lines, file.name, false);
+}
+
+// OCR sometimes splits one ticket row over 2-3 lines. Join an anchor line that is missing its
+// "Yes" / numbers with the lines that follow, stopping at the next ticket or an S/O / Inventory line.
+function mergeOcrTicketLines(lines){
+  const anchor = l => l.toks.some(t=>/^0{5,}\d{5,}$/.test(t));
+  const marker = l => /(^|\s)S[\/\\.|IlO1]?\s?[O0]\s+\d/.test(l.raw) || /^Inventory\b/i.test(l.raw);
+  const complete = toks => { const y = toks.indexOf('Yes'); return y!==-1 && toks.slice(y+1).filter(t=>/^[\d,]+\.?\d+$/.test(t)).length>=2; };
+  const out = [];
+  for(let i=0;i<lines.length;i++){
+    const l = lines[i];
+    if(anchor(l) && !complete(l.toks)){
+      let toks = l.toks.slice(), k = 1;
+      for(; k<=3 && i+k<lines.length; k++){
+        const n = lines[i+k];
+        if(anchor(n) || marker(n)) break;
+        toks = toks.concat(n.toks);
+        if(complete(toks)){ i += k; break; }
+      }
+      out.push({toks, raw:toks.join(' ')});
+    } else out.push(l);
+  }
+  return out;
+}
+
+function parseRegisterLines(lines, fileName, ocr){
+  if(ocr) lines = mergeOcrTicketLines(lines);
+  const soRe = ocr ? /(?:^|\s)[S5$8][\/\\.|IlO1]?\s?[O0QDo]\s*(0\d{6,7})/i : /S\/O\s+(0\d{6,7})/;
+  // OCR fallback: a short (misread) "S/O" prefix, or none, followed by a 7-character SO number. Digits are normalised (O->0, I/l->1).
+  const soLoose = /^(?:\S{1,4}\s+)?([0Oo][0-9OoIl]{6})(?![0-9A-Za-z])/;
+  const headerLine = /Trans|Number|Date|Batch|Register|Journal|Amendola|Page|Total|Work\s+Ticket/i;
+  const full = lines.map(l=>l.raw).join('\n');
+  // Batch number: label and digits can land on separate lines in this PDF.
+  let batch = '';
+  for(let i=0;i<lines.length && !batch;i++){
+    const raw = lines[i].raw;
+    const inl = raw.match(/Batch\s+Number:\s*(\d{4,6})/i);
+    if(inl){ batch = inl[1]; break; }
+    if(/Batch\s+Number:?\s*$/i.test(raw)){
+      for(const adj of [lines[i-1],lines[i+1]]) if(adj && /^\d{4,6}$/.test(adj.raw.trim())){ batch = adj.raw.trim(); break; }
+    } else if(/^\d{4,6}$/.test(raw.trim())){
+      for(const adj of [lines[i-1],lines[i+1]]) if(adj && /batch/i.test(adj.raw)){ batch = raw.trim(); break; }
+    }
+  }
+  const jm = full.match(/Journal\s+Posting\s+Date:\s*(\d{1,2})\/(\d{1,2})\/(\d{4})/i);
+  const tm = full.match(/Total\s+Cost:\s*([\d,]+\.\d+)/i);
+  const printedTotal = tm ? parseFloat(tm[1].replace(/,/g,'')) : null;
+  const wti = [];
+  for(let i=0;i<lines.length;i++) if(lines[i].toks.some(t=>/^0{5,}\d{5,}$/.test(t))) wti.push(i);
+  // every real ticket is followed by an S/O line or an Inventory line; a mismatch means a ticket number was missed
+  const markerCount = lines.filter(l=>!l.toks.some(t=>/^0{5,}\d{5,}$/.test(t)) && (/(^|\s)[S5$8][\/\\.|IlO1]?\s?[O0QDo]\s*\S+/i.test(l.raw) || /\bInventory\b/i.test(l.raw) || (ocr && !headerLine.test(l.raw) && soLoose.test(l.raw)))).length;
+  const tickets = [], skipped = [];
+  let extSum = 0;
+  for(let wi=0;wi<wti.length;wi++){
+    const li = wti[wi], nx = wi+1<wti.length ? wti[wi+1] : lines.length;
+    const blk = lines.slice(li, Math.min(li+8, nx)), wl = blk[0];
+    const wtok = wl.toks.find(t=>/^0{5,}\d{5,}$/.test(t));
+    const code = wl.toks.find(t=>t!==wtok && /^[A-Z0-9][A-Z0-9\-]+$/.test(t) && t.length>=3 && !/^(Yes|EA|W\/T|S\/O|AII|WO|\d{3})$/.test(t)) || '';
+    const yi = wl.toks.indexOf('Yes');
+    if(yi===-1){ skipped.push({wt:stripZeros(wtok), why:'Not marked closed'}); continue; }
+    const an = wl.toks.slice(yi+1).filter(t=>/^[\d,]+\.?\d+$/.test(t));
+    if(an.length<2){ skipped.push({wt:stripZeros(wtok), why:'Could not read quantity/cost'}); continue; }
+    const qty = parseFloat(an[0].replace(/,/g,''));
+    const ext = parseFloat((an.length>=3 ? an[2] : an[1]).replace(/,/g,''));
+    extSum += ext;
+    let so = null, isInv = false;
+    for(let b=0;b<blk.length;b++){
+      const sm = blk[b].raw.match(soRe);
+      if(sm){ so = sm[1]; break; }
+      if(/\bInventory\b/i.test(blk[b].raw)){ isInv = true; break; }
+      if(ocr && b>0 && !headerLine.test(blk[b].raw)){
+        const fm = blk[b].raw.match(soLoose);
+        if(fm){ so = fm[1].replace(/[Oo]/g,'0').replace(/[Il]/g,'1'); break; }
+      }
+    }
+    if(!so && !isInv){ skipped.push({wt:stripZeros(wtok), why:'No S/O or Inventory line found' + (ocr ? ' - OCR read: ' + blk.slice(1,4).map(b=>b.raw).join(' | ').slice(0,140) : '')}); continue; }
+    tickets.push({wt:stripZeros(wtok), so:so?stripZeros(so):null, isInv, code, qty});
+  }
+  const totalOk = printedTotal==null ? null : Math.abs(extSum - printedTotal) < 0.05;
+  const journalDate = jm ? new Date(+jm[3], +jm[1]-1, +jm[2], 12).toISOString() : new Date().toISOString();
+  return {file:fileName, ocr:!!ocr, batch, journalDate, tickets, skipped, printedTotal, extSum, totalOk, anchors:wti.length, markerCount};
+}
+
+async function sbGetJson(path){
+  const r = await fetch(`${SUPA_URL}/rest/v1/${path}`, {headers:H()});
+  if(!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+async function readRegisters(){
+  const err = document.getElementById('comp-err'); err.textContent = '';
+  document.getElementById('comp-result-card').classList.add('hidden');
+  document.getElementById('comp-apply-msg').textContent = '';
+  const btn = document.getElementById('comp-read-btn'); btn.disabled = true; btn.textContent = 'Reading…';
+  try{
+    const regs = [];
+    for(const f of compFiles){
+      const reg = await parseRegisterFile(f, msg=>{ btn.textContent = msg; });
+      if(!reg.anchors){ throw new Error(`${f.name}: no work ticket numbers found.` + (reg.ocr ? ' It was read by OCR, so the scan may be too faint or skewed.' : '')); }
+      if(!reg.batch){ throw new Error(`${f.name}: could not find the Batch Number.`); }
+      regs.push(reg);
+    }
+    // Look the travelers up in orders (any archived state).
+    const wts = [...new Set(regs.flatMap(r=>r.tickets.filter(t=>!t.isInv).map(t=>t.wt)))];
+    const found = {};
+    for(let i=0;i<wts.length;i+=80){
+      const rows = await sbGetJson(`orders?select=traveler,so,completed_batch&traveler=in.(${wts.slice(i,i+80).join(',')})`);
+      rows.forEach(o=>{ found[String(o.traveler)] = o; });
+    }
+    // All travelers on the affected SOs, to report which SOs become fully completed.
+    const soList = [...new Set(regs.flatMap(r=>r.tickets.filter(t=>t.so).map(t=>t.so)))];
+    const soTravs = {};
+    for(let i=0;i<soList.length;i+=40){
+      const chunk = soList.slice(i,i+40).flatMap(s=>[s,'0'+s]).join(',');
+      const rows = await sbGetJson(`orders?select=traveler,so,completed_batch&so=in.(${chunk})`);
+      rows.forEach(o=>{ (soTravs[stripZeros(o.so)] = soTravs[stripZeros(o.so)] || []).push(o); });
+    }
+    const rowsOut = [], toTag = {};  // batch -> {journalDate, travelers:[]}
+    const willTag = new Set();
+    for(const reg of regs){
+      for(const t of reg.tickets){
+        let status, cls = '';
+        if(t.isInv){ status = 'Inventory ticket, skipped'; cls = 'muted'; }
+        else {
+          const o = found[t.wt];
+          if(!o){ status = 'Not found in ProdTrack'; cls = 'warn'; }
+          else if(stripZeros(o.so) !== t.so){ status = `SO mismatch (ProdTrack has ${stripZeros(o.so)})`; cls = 'warn'; }
+          else if(o.completed_batch){ status = `Already tagged (Batch ${o.completed_batch})`; cls = 'muted'; }
+          else { status = 'Will tag'; cls = 'ok'; (toTag[reg.batch] = toTag[reg.batch] || {journalDate:reg.journalDate, travelers:[]}).travelers.push(t.wt); willTag.add(t.wt); }
+        }
+        rowsOut.push({batch:reg.batch, t, status, cls});
+      }
+    }
+    let fullySOs = 0;
+    for(const so of soList){
+      const ts = soTravs[so] || [];
+      if(ts.length && ts.every(o=>o.completed_batch || willTag.has(String(o.traveler)))) fullySOs++;
+    }
+    compPlan = {toTag};
+    const count = s => rowsOut.filter(r=>r.status.startsWith(s)).length;
+    const warnLines = regs.map(r=> r.ocr ? `<div class="err">Batch ${escapeHtml(r.batch)}: this is a scan, read by OCR. Check the numbers below against the paper register before tagging.${r.markerCount!==r.anchors ? ' OCR found '+r.anchors+' work ticket numbers but '+r.markerCount+' S/O or Inventory lines, so a ticket may have been missed.' : ''}</div>` : '').join('') + regs.map(r=> r.totalOk===false ? `<div class="err">Batch ${escapeHtml(r.batch)}: parsed costs (${r.extSum.toFixed(2)}) do not match the printed Total Cost (${r.printedTotal.toFixed(2)}). Tagging is still allowed.${r.ocr ? ' OCR often misreads a digit in a cost; tagging only uses the traveler and SO numbers.' : ''}</div>` : '').join('') +
+      regs.map(r=> r.skipped.length ? `<div class="err">Batch ${escapeHtml(r.batch)}: ${r.skipped.length} ticket(s) could not be read: ${escapeHtml(r.skipped.map(k=>k.wt+' ('+k.why+')').join(', '))}</div>` : '').join('');
+    document.getElementById('comp-summary').innerHTML =
+      `<div class="section-title">${regs.map(r=>'Batch '+escapeHtml(r.batch)).join(' · ')}</div>` +
+      `<div class="section-count">${rowsOut.length} tickets read · <b>${count('Will tag')}</b> will be tagged · ${count('Already')} already tagged · ${count('Not found')+count('SO mismatch')} not matched · ${count('Inventory')} inventory skipped · <b>${fullySOs}</b> SO(s) will show Completed</div>` + warnLines;
+    const body = document.querySelector('#tbl-comp tbody'); body.innerHTML = '';
+    rowsOut.forEach(r=>{
+      const color = r.cls==='ok' ? 'var(--green)' : r.cls==='warn' ? 'var(--amber)' : 'var(--text3)';
+      body.insertAdjacentHTML('beforeend', `<tr><td>${escapeHtml(r.batch)}</td><td>${escapeHtml(r.t.wt)}</td><td>${escapeHtml(r.t.so||'')}</td><td>${escapeHtml(r.t.code)}</td><td>${r.t.qty.toFixed(2)}</td><td style="color:${color}">${escapeHtml(r.status)}</td></tr>`);
+    });
+    compWillTag = willTag.size;
+    const needsOcrOk = regs.some(r=>r.ocr);
+    document.getElementById('comp-ocr-box').classList.toggle('hidden', !needsOcrOk);
+    document.getElementById('comp-ocr-ok').checked = false;
+    document.getElementById('comp-apply-btn').disabled = !willTag.size || needsOcrOk;
+    document.getElementById('comp-apply-btn').textContent = `Tag ${willTag.size} traveler${willTag.size===1?'':'s'}`;
+    document.getElementById('comp-result-card').classList.remove('hidden');
+  }catch(e){
+    err.textContent = e.message || String(e);
+  }finally{
+    btn.disabled = false; btn.textContent = 'Read register';
+  }
+}
+
+async function applyCompletions(){
+  if(!compPlan) return;
+  const btn = document.getElementById('comp-apply-btn'), msg = document.getElementById('comp-apply-msg');
+  btn.disabled = true; msg.textContent = 'Tagging…';
+  try{
+    let wanted = 0, done = 0;
+    for(const batch of Object.keys(compPlan.toTag)){
+      const {journalDate, travelers} = compPlan.toTag[batch];
+      for(let i=0;i<travelers.length;i+=80){
+        const chunk = travelers.slice(i,i+80); wanted += chunk.length;
+        const r = await fetch(`${SUPA_URL}/rest/v1/orders?traveler=in.(${chunk.join(',')})&completed_batch=is.null&select=traveler`, {
+          method:'PATCH', headers:{...H(),'Prefer':'return=representation'},
+          body:JSON.stringify({completed_batch:batch, completed_at:journalDate})
+        });
+        if(!r.ok) throw new Error(await r.text());
+        done += (await r.json()).length;
+      }
+    }
+    msg.textContent = done===wanted ? `Tagged ${done} traveler(s).` : `Tagged ${done} of ${wanted}. The rest were blocked or already tagged; re-read the register to check.`;
+    compPlan = null;
+    btn.textContent = 'Tagged';
+    document.getElementById('f-register').value = ''; compFiles = [];
+    document.getElementById('comp-files').textContent = '';
+    document.getElementById('comp-read-btn').disabled = true;
+    document.getElementById('comp-another-btn').classList.remove('hidden');
+  }catch(e){
+    msg.textContent = ''; document.getElementById('comp-err').textContent = 'Tagging failed: ' + (e.message||e);
+    btn.disabled = false;
+  }
 }
 </script>
 </body>
