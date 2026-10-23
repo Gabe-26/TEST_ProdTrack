@@ -1785,14 +1785,19 @@ async function revAnnotate(bytes, fin){
     page.drawText('** Revised **', {x:18, y:630, size:36, font, color:red});
     (newByPage[idx] || []).forEach(n => page.drawText('*New*', {x:n.x, y:n.y, size:13, font, color:red}));
     if(note){
-      const size = 12, maxW = page.getWidth() - 36;
-      const lines = []; let cur = '';
-      note.split(' ').forEach(w => {
-        const t = cur ? cur + ' ' + w : w;
-        if(cur && font.widthOfTextAtSize(t, size) > maxW){ lines.push(cur); cur = w; } else cur = t;
-      });
-      if(cur) lines.push(cur);
-      lines.forEach((t, k) => page.drawText(t, {x:18, y:62 - k*14, size, font, color:red}));
+      const maxW = page.getWidth() - 36;
+      const wrap = size => {
+        const out = []; let cur = '';
+        note.split(' ').forEach(w => {
+          const t = cur ? cur + ' ' + w : w;
+          if(cur && font.widthOfTextAtSize(t, size) > maxW){ out.push(cur); cur = w; } else cur = t;
+        });
+        if(cur) out.push(cur);
+        return out;
+      };
+      let size = 14, lines = wrap(size);
+      while(lines.length > 4 && size > 9){ size -= 1; lines = wrap(size); }   // a very long list shrinks rather than running off the page
+      lines.forEach((t, k) => page.drawText(t, {x:(page.getWidth() - font.widthOfTextAtSize(t, size)) / 2, y:60 - k*(size + 2), size, font, color:red}));
     }
   });
   return await doc.save();
