@@ -1470,7 +1470,7 @@ async function ocrRegisterLines(doc, onProgress){
 // the Inbox or the match history.
 let revOrigFile = null, revNewFile = null, revTravFiles = [];
 let revOrigPreviews = [], revOrigRows = [], revNew = null, revTickets = null, revPlan = null;
-let revStampedBytes = null, revBusy = false, revOcrText = [];
+let revStampedBytes = null, revBusy = false, revOcrText = '';
 const escAttr = s => escapeHtml(s).replace(/"/g, '&quot;');
 
 function onRevFilesChosen(){
@@ -1506,30 +1506,38 @@ function cleanScanCanvas(cv){
   }
   ctx.putImageData(img, 0, 0);
 }
+// Each page is read THREE times at different render scales. One read is right about 9 times in 10, but the
+// mistakes land on different lines each time, so a majority vote (mergeOcrPasses) fixes most of them and
+// flags the rest instead of letting a wrong value through quietly.
+const REV_OCR_SCALES = [2.5, 3, 3.5];
 async function ocrOrderPages(buf, onProgress){
   if(typeof Tesseract === 'undefined') throw new Error('The OCR library did not load. Check the connection and reload this page.');
   const doc = await pdfjsLib.getDocument({data:new Uint8Array(buf.slice(0))}).promise;
   const worker = await Tesseract.createWorker('eng');
-  const pages = [], previews = [];
+  const passes = REV_OCR_SCALES.map(() => []), previews = [];
   try{
     await worker.setParameters({tessedit_pageseg_mode:'6'});
     for(let p=1;p<=doc.numPages;p++){
-      if(onProgress) onProgress(`Reading original, page ${p} of ${doc.numPages}…`);
       const page = await doc.getPage(p);
-      const vp = page.getViewport({scale:3});
-      const cv = document.createElement('canvas');
-      cv.width = Math.ceil(vp.width); cv.height = Math.ceil(vp.height);
-      await page.render({canvasContext:cv.getContext('2d'), viewport:vp}).promise;
-      const pv = document.createElement('canvas');           // untouched small copy for the on-screen preview
-      pv.width = Math.round(cv.width*0.45); pv.height = Math.round(cv.height*0.45);
-      pv.getContext('2d').drawImage(cv, 0, 0, pv.width, pv.height);
-      previews.push(pv.toDataURL('image/jpeg', 0.8));
-      cleanScanCanvas(cv);
-      const res = await worker.recognize(cv);
-      pages.push(res.data.text);
+      for(let k=0;k<REV_OCR_SCALES.length;k++){
+        if(onProgress) onProgress(`Reading original, page ${p} of ${doc.numPages} (read ${k+1} of ${REV_OCR_SCALES.length})…`);
+        const vp = page.getViewport({scale:REV_OCR_SCALES[k]});
+        const cv = document.createElement('canvas');
+        cv.width = Math.ceil(vp.width); cv.height = Math.ceil(vp.height);
+        await page.render({canvasContext:cv.getContext('2d'), viewport:vp}).promise;
+        if(k === 0){                                            // untouched small copy for the on-screen preview
+          const pv = document.createElement('canvas'), f = 826 / cv.width;
+          pv.width = Math.round(cv.width*f); pv.height = Math.round(cv.height*f);
+          pv.getContext('2d').drawImage(cv, 0, 0, pv.width, pv.height);
+          previews.push(pv.toDataURL('image/jpeg', 0.8));
+        }
+        cleanScanCanvas(cv);
+        const res = await worker.recognize(cv);
+        passes[k].push(res.data.text);
+      }
     }
   } finally { await worker.terminate(); }
-  return {pages, previews};
+  return {passes, previews};
 }
 // OCR text -> order lines. Prod lines are not read (too easily lost under pen marks); only code, qty and
 // wording are used. A line is NEVER dropped because its quantity is noisy: pen marks turn "13.00" into
@@ -1571,6 +1579,38 @@ function parseOcrOrderItems(pages){
     flush();
   });
   return items;
+}
+
+// Several OCR reads of the same scan (different render scales) -> one list, by majority per field.
+// A field the reads disagree on is flagged for the user instead of guessed.
+function mergeOcrPasses(passes){
+  passes = passes.filter(p => p && p.length);
+  if(!passes.length) return [];
+  const freq = {};
+  passes.forEach(p => { freq[p.length] = (freq[p.length] || 0) + 1; });
+  const N = Number(Object.keys(freq).sort((a, b) => freq[b] - freq[a] || b - a)[0]);
+  const use = passes.filter(p => p.length === N);
+  if(use.length < 2) return passes.reduce((a, b) => b.length > a.length ? b : a, passes[0]);
+  const top = votes => { let best = null; Object.keys(votes).forEach(k => { if(best === null || votes[k] > votes[best]) best = k; }); return best; };
+  const sp = s => normText(s || '').replace(/\s+/g, '');
+  const out = [];
+  for(let i = 0; i < N; i++){
+    const rows = use.map(p => p[i]);
+    const cv = {}; rows.forEach(r => { cv[r.code] = (cv[r.code] || 0) + 1; });
+    const code = top(cv);
+    const codeSuspect = cv[code] < 2;
+    const same = rows.filter(r => r.code === code);
+    const qv = {}; same.forEach(r => { if(r.qty !== '') qv[r.qty] = (qv[r.qty] || 0) + 1; });
+    let qty = '', suspect = true;
+    const qk = top(qv);
+    if(qk !== null && qv[qk] >= 2){ qty = Number(qk); suspect = false; }   // two reads agree
+    else { const r = same.find(r => r.qty !== '' && !r.suspect) || same.find(r => r.qty !== ''); if(r) qty = r.qty; }   // no agreement: best guess, flagged
+    const dv = {}; same.forEach(r => { const k = sp(r.desc); dv[k] = (dv[k] || 0) + 1; });
+    const dk = top(dv);
+    const dRow = same.find(r => sp(r.desc) === dk) || same[0];
+    out.push({code, qty, suspect, codeSuspect, desc:dRow.desc, page:rows[0].page, num:''});
+  }
+  return out;
 }
 
 // Original rows (typed/checked by the user) vs revised lines. A revised line gets a number only when it
@@ -1626,10 +1666,10 @@ async function readRevision(){
     revNew = {res, bytes:r.bytes, name:revNewFile.name, pages:r.pages};
     revTickets = runMatchLogic([res], trRes);
     const buf = await revOrigFile.arrayBuffer();
-    const {pages, previews} = await ocrOrderPages(buf, m => { btn.innerHTML = '<span class="spinner"></span>' + m; });
+    const {passes, previews} = await ocrOrderPages(buf, m => { btn.innerHTML = '<span class="spinner"></span>' + m; });
     revOrigPreviews = previews;
-    revOrigRows = parseOcrOrderItems(pages);
-    revOcrText = pages;
+    revOrigRows = mergeOcrPasses(passes.map(pg => parseOcrOrderItems(pg)));
+    revOcrText = passes.map((pg, k) => pg.map((t, i) => `--- read ${k+1} (scale ${REV_OCR_SCALES[k]}), page ${i+1} ---\n${t}`).join('\n')).join('\n');
     revPlan = null; revStampedBytes = null;
     document.getElementById('rev-ok').checked = false;
     document.getElementById('rev-compare-btn').disabled = true;
@@ -1644,14 +1684,14 @@ async function readRevision(){
 function renderRevOrig(){
   document.getElementById('rev-orig-card').classList.remove('hidden');
   document.getElementById('count-rev-orig').textContent = revOrigRows.length;
-  document.getElementById('rev-orig-sub').textContent = `Read from the scan for revised SO ${revNew.res.so}. Check each code and qty against the scan on the right, fix anything wrong, remove junk rows, add any line that was missed, and type the handwritten traveler # beside each line (leave blank if it has none).`;
+  document.getElementById('rev-orig-sub').textContent = `Read from the scan for revised SO ${revNew.res.so}. Check each code and qty against the scan on the right, fix anything wrong, remove junk rows, add any line that was missed, and type the handwritten traveler # beside each line (leave blank if it has none). The scan is read three times; an amber box means the reads disagreed or were unclear, so check those first.`;
   document.querySelector('#tbl-rev-orig tbody').innerHTML = revOrigRows.map((o,i) =>
-    `<tr><td><input type="text" value="${escAttr(o.code)}" style="width:130px;padding:4px 6px;font-size:12px" oninput="revEdit(${i},'code',this.value)"></td>`
+    `<tr><td><input type="text" value="${escAttr(o.code)}"${o.codeSuspect ? ' title="The OCR reads disagreed on this code. Check it against the scan."' : ''} style="width:130px;padding:4px 6px;font-size:12px${o.codeSuspect ? ';border-color:var(--amber)' : ''}" oninput="revEdit(${i},'code',this.value);this.style.borderColor=''"></td>`
     + `<td><input type="text" value="${escAttr(o.qty)}"${o.suspect ? ' title="The OCR was unsure about this qty. Check it against the scan."' : ''} style="width:64px;padding:4px 6px;font-size:12px${o.suspect ? ';border-color:var(--amber)' : ''}" oninput="revEdit(${i},'qty',this.value);this.style.borderColor=''"></td>`
     + `<td style="font-size:11px;color:var(--text3);max-width:260px">${escapeHtml(o.desc||'')}</td>`
     + `<td><input type="text" value="${escAttr(o.num)}" placeholder="none" style="width:90px;padding:4px 6px;font-size:12px" oninput="revEdit(${i},'num',this.value)"></td>`
     + `<td><button class="secondary" style="padding:3px 9px" title="Remove this row" onclick="revDelRow(${i})">×</button></td></tr>`).join('');
-  document.getElementById('rev-ocr-raw').innerHTML = `<details style="margin-top:12px"><summary class="section-count" style="cursor:pointer">Show what the OCR read</summary><pre style="font-size:11px;white-space:pre-wrap;color:var(--text3);max-height:300px;overflow:auto;margin-top:6px">${escapeHtml(revOcrText.map((t,i) => `--- page ${i+1} ---\n${t}`).join('\n'))}</pre></details>`;
+  document.getElementById('rev-ocr-raw').innerHTML = `<details style="margin-top:12px"><summary class="section-count" style="cursor:pointer">Show what the OCR read</summary><pre style="font-size:11px;white-space:pre-wrap;color:var(--text3);max-height:300px;overflow:auto;margin-top:6px">${escapeHtml(revOcrText)}</pre></details>`;
   document.getElementById('rev-orig-preview').innerHTML = revOrigPreviews.map((u,i) =>
     `<div class="section-count" style="margin-top:${i?10:0}px">Original, page ${i+1} of ${revOrigPreviews.length}</div><img src="${u}" style="width:100%;border:1px solid var(--border2);border-radius:6px">`).join('');
 }
@@ -1659,7 +1699,7 @@ function revInvalidate(){
   revPlan = null; revStampedBytes = null;
   document.getElementById('rev-result-card').classList.add('hidden');
 }
-function revEdit(i, k, v){ if(revOrigRows[i]){ revOrigRows[i][k] = v; if(k === 'qty') revOrigRows[i].suspect = false; revInvalidate(); } }
+function revEdit(i, k, v){ if(revOrigRows[i]){ revOrigRows[i][k] = v; if(k === 'qty') revOrigRows[i].suspect = false; if(k === 'code') revOrigRows[i].codeSuspect = false; revInvalidate(); } }
 function revDelRow(i){ revOrigRows.splice(i,1); revInvalidate(); renderRevOrig(); }
 function revAddRow(){ revOrigRows.push({code:'', qty:'', desc:'', page:0, num:''}); revInvalidate(); renderRevOrig(); }
 function revOkChange(){ document.getElementById('rev-compare-btn').disabled = !document.getElementById('rev-ok').checked; }
