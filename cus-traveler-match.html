@@ -1597,15 +1597,15 @@ function buildRevisionPlan(origRows, revItems, newByKey){
   return {lines, origRows};
 }
 function revFinal(){
-  const kept = new Set(), stamps = [];
+  const kept = new Set(), stamps = [], newLines = [];
   revPlan.lines.forEach(L => {
     let num = '';
-    if(L.src === 'new') num = L.num;
+    if(L.src === 'new'){ num = L.num; newLines.push(L); }
     else if(L.src === 'carried' || (L.src === 'check' && L.keep)){ num = L.num; kept.add(L.origIdx); }
     if(num) stamps.push({...L.it, travelerNo:num});
   });
   const obsolete = revPlan.origRows.map((o,i) => ({o,i})).filter(({o,i}) => o.num && !kept.has(i));
-  return {stamps, obsolete};
+  return {stamps, obsolete, newLines};
 }
 
 async function readRevision(){
@@ -1623,7 +1623,7 @@ async function readRevision(){
     if(!res.cusItems.length) throw new Error('No order lines were found in the revised order. It should be the PDF from Sage, not a scan.');
     const trRes = [];
     for(const f of revTravFiles){ const t = await pdfFileToPagesWithPos(f); trRes.push(parseTravelerPDF(t.pages, f.name)); }
-    revNew = {res, bytes:r.bytes, name:revNewFile.name};
+    revNew = {res, bytes:r.bytes, name:revNewFile.name, pages:r.pages};
     revTickets = runMatchLogic([res], trRes);
     const buf = await revOrigFile.arrayBuffer();
     const {pages, previews} = await ocrOrderPages(buf, m => { btn.innerHTML = '<span class="spinner"></span>' + m; });
@@ -1718,6 +1718,45 @@ function revSetKeep(i, keep){
   revPlan.lines[i].keep = keep; revStampedBytes = null;
   renderRevResult();
 }
+// Revision markings, drawn as a second pass so buildStampedPdf (shared with the Match tab) is untouched:
+//  - "** Revised **" where *HOT* goes, on every page
+//  - "*New*" just right of the 0.00 on each line that got a new traveler
+//  - a note at the foot of EVERY page: which WO# to throw out and which new WO# to use
+async function revAnnotate(bytes, fin){
+  const { PDFDocument, StandardFonts, rgb } = PDFLib;
+  const doc = await PDFDocument.load(bytes);
+  const font = await doc.embedFont(StandardFonts.HelveticaBold);
+  const red = rgb(0.85, 0.1, 0.1);
+  const byNum = (a, b) => Number(a) - Number(b);
+  const throwOut = fin.obsolete.map(({o}) => o.num).sort(byNum);
+  const useNew = fin.newLines.map(L => L.num).sort(byNum);
+  let note = '';
+  if(throwOut.length && useNew.length) note = `Throw out WO# ${throwOut.join(', ')}, and use new WO# ${useNew.join(', ')}`;
+  else if(throwOut.length) note = `Throw out WO# ${throwOut.join(', ')}`;
+  else if(useNew.length) note = `Use new WO# ${useNew.join(', ')}`;
+  const pages = doc.getPages();
+  const newByPage = {};
+  fin.newLines.forEach(L => {
+    const ln = ((revNew.pages || [])[L.it.page] || []).find(l => Math.abs(l.y - L.it.y) < 0.5);
+    const bo = ln && ln.tokens && ln.tokens[3];                       // the Back Order "0.00"
+    (newByPage[L.it.page] = newByPage[L.it.page] || []).push({y:L.it.y, x:bo ? bo.x + bo.width + 14 : 462});
+  });
+  pages.forEach((page, idx) => {
+    page.drawText('** Revised **', {x:18, y:630, size:36, font, color:red});
+    (newByPage[idx] || []).forEach(n => page.drawText('*New*', {x:n.x, y:n.y, size:13, font, color:red}));
+    if(note){
+      const size = 12, maxW = page.getWidth() - 36;
+      const lines = []; let cur = '';
+      note.split(' ').forEach(w => {
+        const t = cur ? cur + ' ' + w : w;
+        if(cur && font.widthOfTextAtSize(t, size) > maxW){ lines.push(cur); cur = w; } else cur = t;
+      });
+      if(cur) lines.push(cur);
+      lines.forEach((t, k) => page.drawText(t, {x:18, y:62 - k*14, size, font, color:red}));
+    }
+  });
+  return await doc.save();
+}
 async function revBuild(){
   if(!revPlan) return;
   const err = document.getElementById('rev-err3'); err.textContent = '';
@@ -1730,9 +1769,9 @@ async function revBuild(){
   try{
     const fin = revFinal();
     const built = await buildStampedPdf({[revNew.name]:revNew.bytes}, fin.stamps, {[revNew.name]:revNew.res.allItems});
-    revStampedBytes = built.bytes;
+    revStampedBytes = await revAnnotate(built.bytes, fin);
     const wrap = document.getElementById('rev-preview-pages'); wrap.innerHTML = '';
-    const doc = await pdfjsLib.getDocument({data:built.bytes.slice(0)}).promise;
+    const doc = await pdfjsLib.getDocument({data:revStampedBytes.slice(0)}).promise;
     for(let p=1;p<=doc.numPages;p++){
       const page = await doc.getPage(p);
       const vp = page.getViewport({scale:1.3});
