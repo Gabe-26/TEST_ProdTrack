@@ -254,6 +254,7 @@ td{font-family:var(--mono)}
           <div style="flex:1;min-width:380px">
             <table id="tbl-rev-orig"><thead><tr><th>Item code</th><th>Qty</th><th>Description (as read)</th><th>Traveler #</th><th></th></tr></thead><tbody></tbody></table>
             <button class="secondary" style="margin-top:10px" onclick="revAddRow()">+ Add a line</button>
+            <div id="rev-ocr-raw"></div>
           </div>
           <div id="rev-orig-preview" style="flex:1;min-width:320px;max-height:900px;overflow-y:auto"></div>
         </div>
@@ -1469,7 +1470,7 @@ async function ocrRegisterLines(doc, onProgress){
 // the Inbox or the match history.
 let revOrigFile = null, revNewFile = null, revTravFiles = [];
 let revOrigPreviews = [], revOrigRows = [], revNew = null, revTickets = null, revPlan = null;
-let revStampedBytes = null, revBusy = false;
+let revStampedBytes = null, revBusy = false, revOcrText = [];
 const escAttr = s => escapeHtml(s).replace(/"/g, '&quot;');
 
 function onRevFilesChosen(){
@@ -1531,21 +1532,40 @@ async function ocrOrderPages(buf, onProgress){
   return {pages, previews};
 }
 // OCR text -> order lines. Prod lines are not read (too easily lost under pen marks); only code, qty and
-// wording are used. Junk between the unit and the quantity (pen marks) is tolerated.
+// wording are used. A line is NEVER dropped because its quantity is noisy: pen marks turn "13.00" into
+// "13.C0", "9.060" or "\"1.00". A qty that needed fixing, or can't be read, is flagged (suspect) so the
+// user checks it against the scan.
 function parseOcrOrderItems(pages){
   const items = [];
-  const itemRe = /^(\S+)\s+([A-Za-z]{1,4})\s+(?:.*\s)?([\d,]+\.\d{2})\s+([\d,]+\.\d{2})$/;
-  const cleanCode = t => t.replace(/^[|~'"`*.,;:]+|[|~'"`*.,;:]+$/g, '').toUpperCase();
+  const cleanCode = t => t.replace(/^[|~'"`*.,;:()]+|[|~'"`*.,;:()]+$/g, '').toUpperCase();
+  const codeLike = t => /^[A-Z0-9][A-Z0-9\-\/\.]*[A-Z0-9]$/.test(t);
+  const numLike = t => /\d/.test(t) && /[.,]/.test(t);
+  const readQty = tok => {
+    const raw = String(tok || '').replace(/,/g, '.');
+    let t = raw.replace(/[^0-9A-Za-z.]/g, '').replace(/[COQDcoqd]/g, '0').replace(/[Il]/g, '1');
+    if(/^\d+\.\d{2}$/.test(t)) return {qty:parseFloat(t), suspect:t !== raw};
+    if(/^\d+\.\d{3}$/.test(t)) return {qty:parseFloat(t.slice(0, t.indexOf('.') + 3)), suspect:true};
+    return {qty:'', suspect:true};
+  };
   pages.forEach((text, pi) => {
     let cur = null;
     const flush = () => { if(cur){ cur.desc = normText(cur.d.join(' ')); delete cur.d; items.push(cur); } cur = null; };
     String(text||'').split('\n').forEach(raw => {
       const line = raw.trim();
       if(!line) return;
-      if(/^\d{4}(\s+\S{1,3})?$/.test(line)){ flush(); return; }
-      const m = line.match(itemRe);
-      if(m){ flush(); cur = {code:cleanCode(m[1]), qty:parseFloat(m[3].replace(/,/g,'')), d:[], page:pi, num:''}; return; }
+      if(/^\d{4}(\s+\S{1,3}){0,3}$/.test(line)){ flush(); return; }
       if(/^Printed:/i.test(line)){ flush(); return; }
+      const tk = line.split(/\s+/);
+      const code = tk.length >= 2 ? cleanCode(tk[0]) : '';
+      const unit = tk.length >= 2 ? tk[1].replace(/[^A-Za-z]/g, '').toUpperCase() : '';
+      const tail = tk.length >= 4 && numLike(tk[tk.length-1]) && numLike(tk[tk.length-2]);
+      const isItem = codeLike(code) && (unit === 'EA' || (/^[A-Z]{1,4}$/.test(unit) && tail && /[-\d]/.test(code)));
+      if(isItem){
+        flush();
+        const q = (tk.length >= 4 && numLike(tk[tk.length-2])) ? readQty(tk[tk.length-2]) : {qty:'', suspect:true};
+        cur = {code, qty:q.qty, suspect:q.suspect, d:[], page:pi, num:''};
+        return;
+      }
       if(cur) cur.d.push(line);
     });
     flush();
@@ -1609,6 +1629,7 @@ async function readRevision(){
     const {pages, previews} = await ocrOrderPages(buf, m => { btn.innerHTML = '<span class="spinner"></span>' + m; });
     revOrigPreviews = previews;
     revOrigRows = parseOcrOrderItems(pages);
+    revOcrText = pages;
     revPlan = null; revStampedBytes = null;
     document.getElementById('rev-ok').checked = false;
     document.getElementById('rev-compare-btn').disabled = true;
@@ -1626,10 +1647,11 @@ function renderRevOrig(){
   document.getElementById('rev-orig-sub').textContent = `Read from the scan for revised SO ${revNew.res.so}. Check each code and qty against the scan on the right, fix anything wrong, remove junk rows, add any line that was missed, and type the handwritten traveler # beside each line (leave blank if it has none).`;
   document.querySelector('#tbl-rev-orig tbody').innerHTML = revOrigRows.map((o,i) =>
     `<tr><td><input type="text" value="${escAttr(o.code)}" style="width:130px;padding:4px 6px;font-size:12px" oninput="revEdit(${i},'code',this.value)"></td>`
-    + `<td><input type="text" value="${escAttr(o.qty)}" style="width:64px;padding:4px 6px;font-size:12px" oninput="revEdit(${i},'qty',this.value)"></td>`
+    + `<td><input type="text" value="${escAttr(o.qty)}"${o.suspect ? ' title="The OCR was unsure about this qty. Check it against the scan."' : ''} style="width:64px;padding:4px 6px;font-size:12px${o.suspect ? ';border-color:var(--amber)' : ''}" oninput="revEdit(${i},'qty',this.value);this.style.borderColor=''"></td>`
     + `<td style="font-size:11px;color:var(--text3);max-width:260px">${escapeHtml(o.desc||'')}</td>`
     + `<td><input type="text" value="${escAttr(o.num)}" placeholder="none" style="width:90px;padding:4px 6px;font-size:12px" oninput="revEdit(${i},'num',this.value)"></td>`
     + `<td><button class="secondary" style="padding:3px 9px" title="Remove this row" onclick="revDelRow(${i})">×</button></td></tr>`).join('');
+  document.getElementById('rev-ocr-raw').innerHTML = `<details style="margin-top:12px"><summary class="section-count" style="cursor:pointer">Show what the OCR read</summary><pre style="font-size:11px;white-space:pre-wrap;color:var(--text3);max-height:300px;overflow:auto;margin-top:6px">${escapeHtml(revOcrText.map((t,i) => `--- page ${i+1} ---\n${t}`).join('\n'))}</pre></details>`;
   document.getElementById('rev-orig-preview').innerHTML = revOrigPreviews.map((u,i) =>
     `<div class="section-count" style="margin-top:${i?10:0}px">Original, page ${i+1} of ${revOrigPreviews.length}</div><img src="${u}" style="width:100%;border:1px solid var(--border2);border-radius:6px">`).join('');
 }
@@ -1637,7 +1659,7 @@ function revInvalidate(){
   revPlan = null; revStampedBytes = null;
   document.getElementById('rev-result-card').classList.add('hidden');
 }
-function revEdit(i, k, v){ if(revOrigRows[i]){ revOrigRows[i][k] = v; revInvalidate(); } }
+function revEdit(i, k, v){ if(revOrigRows[i]){ revOrigRows[i][k] = v; if(k === 'qty') revOrigRows[i].suspect = false; revInvalidate(); } }
 function revDelRow(i){ revOrigRows.splice(i,1); revInvalidate(); renderRevOrig(); }
 function revAddRow(){ revOrigRows.push({code:'', qty:'', desc:'', page:0, num:''}); revInvalidate(); renderRevOrig(); }
 function revOkChange(){ document.getElementById('rev-compare-btn').disabled = !document.getElementById('rev-ok').checked; }
